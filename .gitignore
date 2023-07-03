@@ -1,6 +1,9 @@
 # dependencies
 /node_modules
 
+# vscode settings
+.vscode
+
 # System Files
 .DS_Store
 Thumbs.db
