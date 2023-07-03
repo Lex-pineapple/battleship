@@ -23,8 +23,11 @@ function onConnect(wsClient: ws) {
 
     if (typeof event.data === 'string') {
       const pasredData = JSON.parse(event.data);
+      if (typeof pasredData.data === 'string') pasredData.data = JSON.parse(pasredData.data);
       if (DataValidator.validateRawData(pasredData)) {
         const response = await newCommer.handleRequest(pasredData);
+        console.log(JSON.stringify(response));
+
         wsClient.send(JSON.stringify(response));
       } else wsClient.send('error');
     }

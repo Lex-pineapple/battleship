@@ -27,23 +27,23 @@ class Player {
         this.password = userData.password;
         res({
           type: 'reg',
-          data: {
+          data: JSON.stringify({
             name: this.name,
             index: '',
             error: false,
             errorText: '',
-          },
+          }),
           id: this.id,
         });
       } else
         rej({
           type: 'reg',
-          data: {
+          data: JSON.stringify({
             name: '',
             index: '',
             error: true,
             errorText: 'Not found',
-          },
+          }),
           id: '',
         });
     });
