@@ -74,16 +74,8 @@ export namespace WSCommand {
 
   interface IUpdateRoomReq {
     type: 'update_room';
-    data: IUpdateRoomReqData[];
+    data: IRoomDBData[];
     id: number;
-  }
-
-  interface IUpdateRoomReqData {
-    roomId: number;
-    roomUsers: {
-      name: string;
-      index: number;
-    };
   }
 
   interface IAddShipsToGameRes {
@@ -170,4 +162,14 @@ export interface IPlayer {
   id: number;
   name: string;
   password: string;
+}
+
+export interface IRoomDBData {
+  roomId: number;
+  roomUsers: IRoomDBDataUsers[];
+}
+
+export interface IRoomDBDataUsers {
+  name: string;
+  index: number;
 }

@@ -1,10 +1,10 @@
 const resTemplates = {
-  req: {
+  reg: {
     type: 'reg',
     data: '',
     id: 0,
   },
-  reqData: {
+  regData: {
     name: '',
     index: 0,
     error: false,
