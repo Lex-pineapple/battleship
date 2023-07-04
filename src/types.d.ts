@@ -1,14 +1,16 @@
 export namespace WSCommand {
   interface IGenReq {
-    type: 'reg' | 'update_winners' | 'create_game' | 'update_room' | 'attack' | 'turn' | 'finish';
-    data:
-      | IAuthReqData
-      | IUpdateWinReqData[]
-      | IAddPlayerToRoomReqData
-      | IUpdateRoomReqData[]
-      | IAttackReqData
-      | IChangeTurnReqData
-      | IFinishGameReqData;
+    type:
+      | 'reg'
+      | 'update_winners'
+      | 'create_room'
+      | 'create_game'
+      | 'update_room'
+      | 'attack'
+      | 'turn'
+      | 'finish'
+      | 'add_user_to_room';
+    data: string;
     id: number;
   }
 
@@ -166,4 +168,6 @@ export namespace WSCommand {
 
 export interface IPlayer {
   id: number;
+  name: string;
+  password: string;
 }

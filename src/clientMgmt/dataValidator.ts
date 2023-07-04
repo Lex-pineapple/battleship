@@ -1,14 +1,10 @@
 import { WSCommand } from 'src/types';
 
 class DataValidator {
-  static validateRawData(data: any) {
+  static validateRawData(data: unknown) {
     if (data instanceof Object) {
-      console.log(data);
-
-      console.log('type' in data, typeof data.type === 'string');
-
       if (!('type' in data && typeof data.type === 'string')) return false;
-      if (!('data' in data && data.data instanceof Object)) return false;
+      if (!('data' in data && typeof data.data === 'string')) return false;
       if (!('id' in data && typeof data.id === 'number')) return false;
       return true;
     } else return false;

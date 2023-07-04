@@ -1,50 +1,50 @@
+import parseRawData from '../utils/parseRawData';
 import DataValidator from './dataValidator';
 import { WSCommand } from 'src/types';
+// import resTemplates from './resTemplates';
 
 class Player {
   id: number;
   name: string;
   password: string;
+  wins: number;
   constructor(id: number) {
     this.id = id;
     this.name = '';
     this.password = '';
+    this.wins = 0;
   }
 
-  async handleRequest(data: WSCommand.IGenReq) {
-    switch (data.type) {
-      case 'reg':
-        return this.authorisePlayer(data.data as WSCommand.IAuthReqData);
-      default:
-        break;
-    }
-  }
+  // async delegate(idx: number, data: WSCommand.IGenReq, roomDB: any) {
 
-  async authorisePlayer(userData: WSCommand.IAuthReqData) {
-    return new Promise((res, rej) => {
-      if (DataValidator.validateAuthData(userData)) {
-        this.name = userData.name;
-        this.password = userData.password;
+  // }
+
+  async authorisePlayer(idx: number, userData: string) {
+    return new Promise((res) => {
+      const parsedData = parseRawData(userData);
+      if (!parsedData)
         res({
-          type: 'reg',
-          data: JSON.stringify({
-            name: this.name,
-            index: '',
-            error: false,
-            errorText: '',
-          }),
-          id: this.id,
+          name: '',
+          index: idx,
+          error: true,
+          errorText: 'The authorisation data could not be parsed',
+        });
+      if (DataValidator.validateAuthData(parsedData)) {
+        const authData = parsedData as WSCommand.IAuthReqData;
+        this.name = authData.name;
+        this.password = authData.password;
+        res({
+          name: this.name,
+          index: '',
+          error: false,
+          errorText: '',
         });
       } else
-        rej({
-          type: 'reg',
-          data: JSON.stringify({
-            name: '',
-            index: '',
-            error: true,
-            errorText: 'Not found',
-          }),
-          id: '',
+        res({
+          name: '',
+          index: idx,
+          error: true,
+          errorText: 'The login data is incorrect',
         });
     });
   }
