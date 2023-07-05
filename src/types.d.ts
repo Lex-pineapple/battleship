@@ -9,7 +9,8 @@ export namespace WSCommand {
       | 'attack'
       | 'turn'
       | 'finish'
-      | 'add_user_to_room';
+      | 'add_user_to_room'
+      | 'add_ships';
     data: string;
     id: number;
   }
@@ -159,6 +160,7 @@ export namespace WSCommand {
 }
 
 export interface IPlayer {
+  ships: any;
   id: number;
   name: string;
   password: string;
@@ -171,5 +173,30 @@ export interface IRoomDBData {
 
 export interface IRoomDBDataUsers {
   name: string;
-  index: number;
+  id: number;
+}
+
+export interface IUpdateData {
+  current:
+    | {
+        data: string[];
+      }
+    | boolean;
+  all:
+    | {
+        data: string[];
+      }
+    | boolean;
+  room:
+    | {
+        roomId: number;
+        data: string[];
+      }
+    | boolean;
+  game:
+    | {
+        gameId: number;
+        data: string[];
+      }
+    | boolean;
 }

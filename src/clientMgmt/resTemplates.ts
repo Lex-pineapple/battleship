@@ -1,3 +1,5 @@
+import { IUpdateData } from 'src/types';
+
 const resTemplates = {
   reg: {
     type: 'reg',
@@ -30,6 +32,18 @@ const resTemplates = {
     data: '',
     id: 0,
   },
+  start_game: {
+    type: 'start_game',
+    data: '',
+    id: 0,
+  },
 };
 
-export default resTemplates;
+const innerUpdTemplate: IUpdateData = {
+  current: false,
+  all: false,
+  room: false,
+  game: false,
+};
+
+export { resTemplates, innerUpdTemplate };

@@ -1,6 +1,7 @@
 import Player from '../clientMgmt/player';
 import ws from 'ws';
 import Handler from './handler';
+import { IUpdateData } from 'src/types';
 // import { WSCommand } from 'src/types';
 
 const handler = new Handler();
@@ -15,11 +16,13 @@ function createWebsocketServer(PORT: number) {
 function onConnect(wsClient: ws) {
   const newCommer = new Player(lastPlayerId);
   handler.addPlayerToDB(newCommer);
+  handler.addSocketToDB(lastPlayerId, wsClient);
   lastPlayerId++;
 
   wsClient.onmessage = async function (event) {
-    const messages = await handler.handleMessage(event.data, newCommer);
-    messages?.forEach((message) => wsClient.send(message));
+    const message = await handler.handleMessage(event.data, newCommer);
+    handleCLientsUpdate(message, wsClient);
+    // messages?.forEach((message) => wsClient.send(message));
   };
 
   wsClient.on('close', () => {});
@@ -27,5 +30,7 @@ function onConnect(wsClient: ws) {
     console.log('Ann error occured!');
   });
 }
+
+function handleCLientsUpdate(data: IUpdateData, wsClient: ws) {}
 
 export { createWebsocketServer };

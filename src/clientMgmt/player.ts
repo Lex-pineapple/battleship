@@ -8,11 +8,13 @@ class Player {
   name: string;
   password: string;
   wins: number;
+  ships: any;
   constructor(id: number) {
     this.id = id;
     this.name = '';
     this.password = '';
     this.wins = 0;
+    this.ships = [];
   }
 
   // async delegate(idx: number, data: WSCommand.IGenReq, roomDB: any) {
