@@ -166,16 +166,6 @@ export interface IPlayer {
   password: string;
 }
 
-export interface IRoomDBData {
-  roomId: number;
-  roomUsers: IRoomDBDataUsers[];
-}
-
-export interface IRoomDBDataUsers {
-  name: string;
-  id: number;
-}
-
 export interface IUpdateData {
   current:
     | {
@@ -195,8 +185,49 @@ export interface IUpdateData {
     | boolean;
   game:
     | {
-        gameId: number;
-        data: string[];
+        data: ICreateGameRet[];
       }
     | boolean;
+}
+
+export interface ICreateGameRet {
+  id: number;
+  data: string;
+}
+
+export interface IRoomDBReckord {
+  roomId: number;
+  roomUsers: IRoomDBReckordUser[];
+}
+
+export interface IRoomDBReckordUser {
+  name: string;
+  index: number;
+  id?: number;
+}
+
+export interface IGameDBReckord {
+  gameId: number;
+  players: IGameDBReckordPlayer[];
+}
+
+export interface IGameDBReckordPlayer {
+  index: number;
+  player: Player;
+}
+
+export interface IShipState {
+  totalAlive: number;
+  ships: IShipData[];
+}
+
+export interface IShipData {
+  position: {
+    x: number;
+    y: number;
+  };
+  direction: boolean;
+  length: number;
+  slots?: string[];
+  type: 'small' | 'medium' | 'large' | 'huge';
 }

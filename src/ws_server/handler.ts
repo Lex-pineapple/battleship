@@ -1,23 +1,24 @@
 import Player from '../clientMgmt/player';
-import ws from 'ws';
-import DB from '../clientMgmt/db';
 import parseRawData from '../utils/parseRawData';
 import DataValidator from '../clientMgmt/dataValidator';
-import { IPlayer, WSCommand } from 'src/types';
+import { ICreateGameRet, IGameDBReckordPlayer, IRoomDBReckord, WSCommand } from 'src/types';
 import { resTemplates, innerUpdTemplate } from '../clientMgmt/resTemplates';
+import UserDB from 'src/db/userDB';
+import RoomDB from 'src/db/roomDB';
+import GameDB from 'src/db/gameDB';
 
 class Handler {
-  db: DB;
+  playerDB: UserDB;
+  roomDB: RoomDB;
+  gameDB: GameDB;
   constructor() {
-    this.db = new DB();
-  }
-
-  addSocketToDB(id: number, socket: ws) {
-    this.db.addSocket(id, socket);
+    this.playerDB = new UserDB();
+    this.roomDB = new RoomDB();
+    this.gameDB = new GameDB();
   }
 
   addPlayerToDB(player: Player) {
-    this.db.addPlayer(player);
+    this.playerDB.addReckord(player);
   }
 
   async handleMessage(data: string | Buffer[] | Buffer | ArrayBuffer, player: Player) {
@@ -48,16 +49,20 @@ class Handler {
       }
       case 'add_user_to_room': {
         const clientData = this.handleAddUserToRoom(data.data, player);
-        if ('gameId' in clientData && clientData.gameId) {
+        if (clientData.type === 'all') {
+          updData.all = {
+            data: clientData.data as string[],
+          };
+        } else {
           updData.all = { data: [this.handleUpdateRoom()] };
-          updData.game = { gameId: clientData.gameId, data: clientData.data };
-        } else updData.all = clientData;
+          updData.game = { data: clientData.data as ICreateGameRet[] };
+        }
         return updData;
       }
       case 'add_ships': {
-        const clientData = this.handleAddShips(data.data);
+        const clientData = this.handleAddShips(data.data, player);
         if (clientData) {
-          updData.game = clientData;
+          updData.game = { data: clientData };
         }
         return updData;
       }
@@ -83,77 +88,111 @@ class Handler {
 
   handleCreateRoom() {
     const resUpdate = resTemplates.update_room;
-    this.db.createRoom();
-    resUpdate.data = JSON.stringify(this.db.roomDB);
+    this.roomDB.createEmptyReckord();
+    resUpdate.data = JSON.stringify(this.roomDB.reckords);
     return [this.handleUpdateRoom()];
   }
 
   handleAddUserToRoom(data: string, player: Player) {
     const parsedData = parseRawData(data);
     // if (!parsedData) handle error
-    const targetRoom = this.db.getRoomByIdx(parsedData.indexRoom);
-    if (targetRoom && targetRoom.roomUsers && targetRoom.roomUsers.length < 2) {
-      targetRoom.roomUsers.push({
-        name: player.name,
-        id: player.id,
-      });
-      if (targetRoom && targetRoom.roomUsers && targetRoom.roomUsers.length === 2) {
-        const createGameData: string[] = [];
-        targetRoom.roomUsers.forEach((user) =>
-          createGameData.push(this.handleCreateGame(targetRoom.roomId, user.id))
-        );
-        return { data: createGameData, gameId: targetRoom.roomId };
+    const targetRoom = this.roomDB.getReckordByID(parsedData.indexRoom);
+    if (targetRoom) {
+      if (targetRoom.roomUsers.length < 2) {
+        this.roomDB.addUserToRoom(parsedData.indexRoom, player.name, player.id);
+      }
+
+      if (targetRoom.roomUsers.length === 2) {
+        return {
+          type: 'room',
+          data: this.handleCreateGame(targetRoom),
+        };
       }
     }
-    return { data: [this.handleUpdateRoom()] };
+    //   if (targetRoom && targetRoom.roomUsers && targetRoom.roomUsers.length === 2) {
+    //     const createGameData: string[] = [];
+    //     targetRoom.roomUsers.forEach((user) =>
+    //       createGameData.push(this.handleCreateGame(targetRoom.roomId, user.id))
+    //     );
+    //     return { data: createGameData, gameId: targetRoom.roomId };
+    //   }
+    // }
+    return {
+      type: 'all',
+      data: [this.handleUpdateRoom()],
+    };
   }
 
-  handleCreateGame(roomIdx: number, id: number) {
+  handleCreateGame(room: IRoomDBReckord): ICreateGameRet[] {
+    this.gameDB.createNewGame(room.roomId);
+    const players: IGameDBReckordPlayer[] = [];
+    room.roomUsers.forEach((user) => {
+      if (user.id) {
+        const player = this.playerDB.getReckordByID(user.id);
+        players.push({
+          index: user.index,
+          player,
+        });
+      }
+    });
+    this.gameDB.addPlayersToGame(room.roomId, players);
+
     const resCreate = resTemplates.create_game;
-    resCreate.data = JSON.stringify({
-      idGame: roomIdx,
-      idPlayer: id,
+    const resCreateArray = new Array(2).fill({
+      id: 0,
+      data: resCreate,
     });
 
-    return JSON.stringify(resCreate);
+    for (let i = 0; i < room.roomUsers.length; i++) {
+      resCreateArray[i].id = room.roomUsers[i].id;
+      resCreateArray[i].data = {
+        ...resCreate,
+        data: JSON.stringify({
+          idGame: room.roomId,
+          idPlayer: room.roomUsers[i].id,
+        }),
+      };
+    }
+
+    return resCreateArray;
   }
 
   handleUpdateRoom() {
     const resUpdate = resTemplates.update_room;
-    resUpdate.data = JSON.stringify(this.db.roomDB);
+    resUpdate.data = JSON.stringify(this.roomDB.reckords);
     return JSON.stringify(resUpdate);
   }
 
-  handleAddShips(data: string) {
+  handleAddShips(data: string, player: Player) {
     const parsedData = parseRawData(data);
     // if (!parsedData) handle error
-    const currGame = this.db.getRoomByIdx(parsedData.gameId);
-    const currPlayer = this.db.getPlayerById(parsedData.indexPlayer);
-    if (currPlayer) currPlayer.ships = parsedData.ships;
+    const game = this.gameDB.getReckordByID(parsedData.gameId);
+    player.initShipsData(parsedData.ships);
 
     // to start game check if ships exist
     let startGame = true;
-    currGame?.roomUsers.forEach((user) => {
-      const player = this.db.getPlayerById(user.id);
-      if (player?.ships.length === 0) startGame = false;
+    game?.players.forEach((player) => {
+      if (player.player.shipsState.totalAlive === 0) startGame = false;
     });
     if (startGame) {
+      const startGameRes = resTemplates.start_game;
+
       const startGameData: {
-        gameId: number;
-        data: string[];
-      } = {
-        gameId: parsedData.gameId,
-        data: [],
-      };
-      currGame?.roomUsers.forEach((user) => {
-        const player = this.db.getPlayerById(user.id);
-        if (player) {
-          const startGameRes = resTemplates.start_game;
-          startGameRes.data = JSON.stringify({
-            ships: player.ships,
-          });
-          startGameData.data.push(JSON.stringify(startGameRes));
-        }
+        id: number;
+        data: string;
+      }[] = [];
+
+      game?.players.forEach((player) => {
+        startGameData.push({
+          id: player.player.id,
+          data: JSON.stringify({
+            ...startGameRes,
+            data: {
+              ships: player.player.shipsState.ships,
+              currentPlayerIndex: 0,
+            },
+          }),
+        });
       });
       return startGameData;
     }

@@ -1,6 +1,6 @@
 import parseRawData from '../utils/parseRawData';
 import DataValidator from './dataValidator';
-import { WSCommand } from 'src/types';
+import { IShipData, IShipState, WSCommand } from 'src/types';
 // import resTemplates from './resTemplates';
 
 class Player {
@@ -8,13 +8,18 @@ class Player {
   name: string;
   password: string;
   wins: number;
-  ships: any;
+  shipsState: IShipState;
+  inGame: boolean;
   constructor(id: number) {
     this.id = id;
     this.name = '';
     this.password = '';
+    this.inGame = false;
     this.wins = 0;
-    this.ships = [];
+    this.shipsState = {
+      totalAlive: 0,
+      ships: [],
+    };
   }
 
   // async delegate(idx: number, data: WSCommand.IGenReq, roomDB: any) {
@@ -49,6 +54,16 @@ class Player {
           errorText: 'The login data is incorrect',
         });
     });
+  }
+
+  initShipsData(ships: IShipData[]) {
+    this.shipsState.totalAlive = ships.length;
+    for (let i = 0; i < ships.length; i++) {
+      this.shipsState.ships.push({
+        ...ships[i],
+        slots: new Array(ships[i].length).fill(''),
+      });
+    }
   }
 }
 

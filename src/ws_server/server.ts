@@ -1,10 +1,11 @@
 import Player from '../clientMgmt/player';
 import ws from 'ws';
 import Handler from './handler';
-import { IUpdateData } from 'src/types';
+import SocketDB from 'src/db/socketDB';
 // import { WSCommand } from 'src/types';
 
 const handler = new Handler();
+const socketDB = new SocketDB();
 let lastPlayerId = 0;
 
 function createWebsocketServer(PORT: number) {
@@ -16,13 +17,12 @@ function createWebsocketServer(PORT: number) {
 function onConnect(wsClient: ws) {
   const newCommer = new Player(lastPlayerId);
   handler.addPlayerToDB(newCommer);
-  handler.addSocketToDB(lastPlayerId, wsClient);
+  socketDB.addReckord(lastPlayerId, wsClient);
   lastPlayerId++;
 
   wsClient.onmessage = async function (event) {
     const message = await handler.handleMessage(event.data, newCommer);
-    handleCLientsUpdate(message, wsClient);
-    // messages?.forEach((message) => wsClient.send(message));
+    // handleCLientsUpdate(message, wsClient);
   };
 
   wsClient.on('close', () => {});
@@ -31,6 +31,6 @@ function onConnect(wsClient: ws) {
   });
 }
 
-function handleCLientsUpdate(data: IUpdateData, wsClient: ws) {}
+// function handleCLientsUpdate(data: IUpdateData, wsClient: ws) {}
 
 export { createWebsocketServer };
