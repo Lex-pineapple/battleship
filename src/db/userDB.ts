@@ -13,6 +13,18 @@ class UserDB {
   getReckordByID(id: number) {
     return this.reckords.find((item) => item.id === id);
   }
+
+  getWinners() {
+    const winners = this.reckords
+      .filter((reckord) => reckord.wins > 0)
+      .map((reckord) => {
+        return {
+          name: reckord.name,
+          wins: reckord.wins,
+        };
+      });
+    winners.sort((a, b) => b.wins - a.wins);
+  }
 }
 
 export default UserDB;

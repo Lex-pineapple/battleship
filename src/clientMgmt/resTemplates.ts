@@ -1,4 +1,4 @@
-import { IUpdateData } from 'src/types';
+import { IShipRetData, IUpdateData } from 'src/types';
 
 const resTemplates = {
   reg: {
@@ -37,6 +37,26 @@ const resTemplates = {
     data: '',
     id: 0,
   },
+  attack: {
+    type: 'attack',
+    data: '',
+    id: 0,
+  },
+  turn: {
+    type: 'turn',
+    data: '',
+    id: 0,
+  },
+  finish: {
+    type: 'finish',
+    data: '',
+    id: 0,
+  },
+  update_winners: {
+    type: 'update_winners',
+    data: '',
+    id: 0,
+  },
 };
 
 const innerUpdTemplate: IUpdateData = {
@@ -46,4 +66,13 @@ const innerUpdTemplate: IUpdateData = {
   game: false,
 };
 
-export { resTemplates, innerUpdTemplate };
+const shipRetData: IShipRetData = {
+  position: {
+    x: 0,
+    y: 0,
+  },
+  currentPlayer: 0,
+  status: 'miss',
+};
+
+export { resTemplates, innerUpdTemplate, shipRetData };

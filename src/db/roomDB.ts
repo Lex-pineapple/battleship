@@ -26,7 +26,7 @@ class RoomDB {
           index: 0,
           id,
         });
-      if (room.roomUsers.length === 1)
+      else if (room.roomUsers.length === 1)
         room.roomUsers.push({
           name,
           index: 1,
@@ -37,6 +37,14 @@ class RoomDB {
 
   getReckordByID(id: number) {
     return this.reckords.find((item) => item.roomId === id);
+  }
+
+  deleteReckordById(id: number) {
+    const reckord = this.getReckordByID(id);
+    if (reckord) {
+      const reckordIdx = this.reckords.indexOf(reckord);
+      if (reckordIdx > -1) this.reckords.splice(reckordIdx, 1);
+    }
   }
 }
 
