@@ -284,6 +284,9 @@ class Handler {
           response.game.data.forEach((item) =>
             item.data.push(this.handleTurn(attackResult.data.status, defenderIdx, attackerIdx))
           );
+          const currPlayer = attackResult.data.status === 'miss' ? defenderIdx : attackerIdx;
+          const player = game.players.find((player) => player.type === 'bot');
+          if (player) game.generateRandomMove(currPlayer);
         }
       }
 
