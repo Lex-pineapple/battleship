@@ -6,12 +6,15 @@ import {
   IGameDBReckord,
   IGameDBReckordPlayer,
   IRoomDBReckord,
+  IRoomDBReckordUser,
+  IUpdateData,
   WSCommand,
 } from 'src/types';
 import { resTemplates, innerUpdTemplate } from '../clientMgmt/resTemplates';
 import UserDB from '../db/userDB';
 import RoomDB from '../db/roomDB';
 import GameDB from '../db/gameDB';
+import Game from '../clientMgmt/game';
 
 class Handler {
   playerDB: UserDB;
@@ -66,19 +69,24 @@ class Handler {
         return updData;
       }
       case 'add_ships': {
-        const clientData = this.handleAddShips(data.data, player);
+        const clientData = this.handleAddShips(data.data);
         if (clientData) {
           updData.game = { data: clientData };
         }
         return updData;
       }
       case 'attack': {
-        const clientData = this.handleAttack(data.data, player);
+        const clientData = this.handleAttack(data.data);
         return clientData;
       }
       case 'randomAttack': {
         const clientData = this.handleRandomAttack(data.data, player);
         return clientData;
+      }
+      case 'single_player': {
+        const clientData = this.handleSinglePlayer(data.data);
+        updData.game = { data: clientData.data as ICreateGameRet[] };
+        return updData;
       }
       default:
         // return [
@@ -132,41 +140,28 @@ class Handler {
   }
 
   handleCreateGame(room: IRoomDBReckord): ICreateGameRet[] {
-    this.gameDB.createNewGame(room.roomId);
-    const players: IGameDBReckordPlayer[] = [];
-    room.roomUsers.forEach((user) => {
-      if (user.id) {
-        const player = this.playerDB.getReckordByID(user.id);
-        players.push({
-          index: user.index,
-          player,
-        });
-      }
-    });
-    this.gameDB.addPlayersToGame(room.roomId, players);
+    const newGame = new Game(room.roomId, room.roomUsers[0], room.roomUsers[1]);
+    this.gameDB.addNewGame(newGame);
 
     const resCreate = resTemplates.create_game;
     const resCreateArray = [];
-    // = new Array(2).fill({
-    //   id: 0,
-    //   data: resCreate,
-    // });
-
-    console.log('room.roomUsers', room.roomUsers);
 
     for (let i = 0; i < room.roomUsers.length; i++) {
-      resCreateArray.push({
-        id: room.roomUsers[i].id,
-        data: [
-          JSON.stringify({
-            ...resCreate,
-            data: JSON.stringify({
-              idGame: room.roomId,
-              idPlayer: room.roomUsers[i].id,
+      if (typeof room.roomUsers[i] !== 'boolean' && room.roomUsers[i] instanceof Object) {
+        resCreateArray.push({
+          id: (room.roomUsers[i] as IRoomDBReckordUser).id,
+          data: [
+            JSON.stringify({
+              ...resCreate,
+              data: JSON.stringify({
+                idGame: room.roomId,
+                idPlayer: i,
+              }),
             }),
-          }),
-        ],
-      });
+            this.handleTurn('', 1, 0),
+          ],
+        });
+      }
     }
 
     return resCreateArray;
@@ -185,89 +180,80 @@ class Handler {
     return JSON.stringify(resWinner);
   }
 
-  handleAddShips(data: string, player: Player) {
+  handleAddShips(data: string) {
     const parsedData = parseRawData(data);
     // if (!parsedData) handle error
     const game = this.gameDB.getReckordByID(parsedData.gameId);
-    player.initShipsData(parsedData.ships);
+    if (game) {
+      const botPlayer = game.players.find((player) => player.type === 'bot');
+      if (botPlayer) game.createRandomShips(botPlayer);
+      game.initShipsData(parsedData.indexPlayer, parsedData.data);
+      if (game.checkShipsFill()) {
+        // start game
+        const startGameRes = resTemplates.start_game;
+        const startGameData: {
+          id: number | null;
+          data: string[];
+        }[] = [];
 
-    // to start game check if ships exist
-    let startGame = true;
-    game?.players.forEach((player) => {
-      if (player.player.shipsState.totalAlive === 0) startGame = false;
-    });
-    if (startGame) {
-      const startGameRes = resTemplates.start_game;
-
-      const startGameData: {
-        id: number;
-        data: string[];
-      }[] = [];
-
-      game?.players.forEach((player) => {
-        startGameData.push({
-          id: player.player.id,
-          data: [
-            JSON.stringify({
-              ...startGameRes,
-              data: {
-                ships: player.player.shipsState.ships,
-                currentPlayerIndex: 0,
-              },
-            }),
-          ],
+        game.players.forEach((player) => {
+          startGameData.push({
+            id: player.id,
+            data: [
+              JSON.stringify({
+                ...startGameRes,
+                data: {
+                  ships: player.shipsState.ships,
+                  currentPlayerIndex: parsedData.indexPlayer,
+                },
+              }),
+            ],
+          });
         });
-      });
-      return startGameData;
+        return startGameData;
+      }
     }
   }
 
-  handleAttack(data: string, player: Player) {
+  handleAttack(data: string) {
     const parsedData = parseRawData(data);
     // if (!parsedData) handle error
     const game = this.gameDB.getReckordByID(parsedData.gameId);
-    const currPlayerIdx = parsedData.indexPlayer;
-    const attackedPlayer = this.gameDB.getOppRecordByIdx(parsedData.gameId, parsedData.indexPlayer);
-    const response = this.handleNextMove(game, currPlayerIdx, attackedPlayer, parsedData, player);
-    return response;
-  }
-
-  handleNextMove(
-    game: IGameDBReckord | undefined,
-    currPlayerIdx: number,
-    attackedPlayer: IGameDBReckordPlayer | undefined,
-    parsedData: any,
-    player: Player
-  ) {
-    let response = innerUpdTemplate;
-    if (attackedPlayer) {
-      const attackResult = attackedPlayer.player.calculateAttack(parsedData.x, parsedData.y);
-      attackResult.data.currentPlayer = parsedData.indexPlayer;
-      const resAttack = resTemplates.attack;
-      resAttack.data = JSON.stringify(attackResult.data);
-
-      const gameReturnDataArray: ICreateGameRet[] = [];
-      game?.players.forEach((player) =>
-        gameReturnDataArray.push({
-          id: player.player.id,
-          data: [JSON.stringify(resAttack.data)],
-        })
+    if (game) {
+      const attackerIdx = parsedData.indexPlayer;
+      const defenderIdx = attackerIdx === 0 ? 1 : 0;
+      const attackResult = game.calculateAttack(
+        attackerIdx,
+        defenderIdx,
+        parsedData.x,
+        parsedData.y
       );
+      const resAttack = resTemplates.attack;
+
+      let response = innerUpdTemplate;
+
+      resAttack.data = JSON.stringify(attackResult.data);
+      const gameReturnDataArray: ICreateGameRet[] = [];
+      game.players.forEach((player) => {
+        if (player.id)
+          gameReturnDataArray.push({
+            id: player.id,
+            data: [JSON.stringify(resAttack.data)],
+          });
+      });
       response = {
         ...response,
         game: {
           data: gameReturnDataArray,
         },
       };
+
       if (attackResult.finished) {
-        player.wins++;
-        game?.players.forEach((player) => {
-          player.player.inGame = false;
-          player.player.shipsState = {
-            totalAlive: 0,
-            ships: [],
-          };
-        });
+        const attacker = game.getPlayerByIdx(attackerIdx);
+        if (attacker && attacker.id) {
+          const player = this.playerDB.getReckordByID(attacker.id);
+          if (player) player.wins++;
+        }
         this.roomDB.deleteReckordById(parsedData.gameId);
         this.gameDB.deleteReckordById(parsedData.gameId);
         response = {
@@ -284,46 +270,77 @@ class Handler {
               JSON.stringify({
                 ...finishRes,
                 data: JSON.stringify({
-                  winPlayer: currPlayerIdx,
+                  winPlayer: attackerIdx,
                 }),
               })
             )
           );
         }
       } else {
-        const turnRes = resTemplates.turn;
+        if (response.game instanceof Object) {
+          response.game.data.forEach((item) => item.data.push());
+        }
         if (response.game instanceof Object) {
           response.game.data.forEach((item) =>
-            item.data.push(
-              JSON.stringify({
-                ...turnRes,
-                data: JSON.stringify({
-                  currentPlayer:
-                    attackResult.status === 'miss' ? attackedPlayer.index : currPlayerIdx,
-                }),
-              })
-            )
+            item.data.push(this.handleTurn(attackResult.data.status, defenderIdx, attackerIdx))
           );
         }
       }
+
+      return response;
     }
   }
 
-  handleRandomAttack(data: string, player: Player) {
+  handleTurn(status: string, defenderIdx: number, attackerIdx: number) {
+    const turnRes = resTemplates.turn;
+    return JSON.stringify({
+      ...turnRes,
+      data: JSON.stringify({
+        currentPlayer: status === 'miss' ? defenderIdx : attackerIdx,
+      }),
+    });
+  }
+
+  handleRandomAttack(data: string) {
     const parsedData = parseRawData(data);
-    const moveCoord = player.generateRandomMove();
-    const game = this.gameDB.getReckordByID(parsedData.gameId);
-    const currPlayerIdx = parsedData.indexPlayer;
-    const attackedPlayer = this.gameDB.getOppRecordByIdx(parsedData.gameId, parsedData.indexPlayer);
-    const response = this.handleNextMove(
-      game,
-      currPlayerIdx,
-      attackedPlayer,
-      { ...parsedData, ...moveCoord },
-      player
-    );
-    return response;
     // if (!parsedData) handle error
+    const game = this.gameDB.getReckordByID(parsedData.gameId);
+    if (game) {
+      const attackerIdx = parsedData.indexPlayer;
+      const defenderIdx = attackerIdx === 0 ? 1 : 0;
+      const moveCoord = game.generateRandomMove(attackerIdx);
+
+      // TODO: fix and merge with handle attack
+      const response = this.handleNextMove(
+        game,
+        currPlayerIdx,
+        attackedPlayer,
+        { ...parsedData, ...moveCoord },
+        player
+      );
+      return response;
+    }
+  }
+
+  handleSinglePlayer(data: string) {
+    const parsedData = parseRawData(data);
+    // if (!parsedData) handle error
+    const virtRoomData = {
+      roomId: this.roomDB.reckords.length,
+      roomUsers: [
+        {
+          name: parsedData.name,
+          index: 0,
+          id: parsedData.id,
+        },
+        false,
+      ],
+    };
+    const returnData = {
+      type: 'room',
+      data: this.handleCreateGame(virtRoomData),
+    };
+    return returnData;
   }
 }
 

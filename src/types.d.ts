@@ -11,7 +11,8 @@ export namespace WSCommand {
       | 'finish'
       | 'add_user_to_room'
       | 'add_ships'
-      | 'randomAttack';
+      | 'randomAttack'
+      | 'single_player';
     data: string;
     id: number;
   }
@@ -197,7 +198,7 @@ export interface ICreateGameRet {
 
 export interface IRoomDBReckord {
   roomId: number;
-  roomUsers: IRoomDBReckordUser[];
+  roomUsers: (IRoomDBReckordUser | boolean)[];
 }
 
 export interface IRoomDBReckordUser {
@@ -229,7 +230,8 @@ export interface IShipData {
   direction: boolean;
   length: number;
   slots: string[];
-  type: 'small' | 'medium' | 'large' | 'huge';
+  type: string;
+  // type: 'small' | 'medium' | 'large' | 'huge';
 }
 
 export interface IShipRetData {
@@ -239,4 +241,18 @@ export interface IShipRetData {
   };
   currentPlayer: number;
   status: 'miss' | 'killed' | 'shot';
+}
+
+export interface IGamePlayers {
+  type: string;
+  index: number;
+  id: number | null;
+  name: string;
+  shipsState: IShipState;
+  moves: IMove[];
+}
+
+interface IMove {
+  x: number;
+  y: number;
 }

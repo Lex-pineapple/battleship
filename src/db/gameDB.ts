@@ -1,44 +1,17 @@
-import { IGameDBReckord, IGameDBReckordPlayer } from 'src/types';
+import Game from '../clientMgmt/game';
 
 class GameDB {
-  reckords: IGameDBReckord[];
+  reckords: Game[];
   constructor() {
     this.reckords = [];
   }
 
-  createNewGame(gameId: number) {
-    this.reckords.push({
-      gameId,
-      players: [],
-    });
-  }
-
-  addPlayersToGame(gameId: number, players: IGameDBReckordPlayer[]) {
-    const game = this.getReckordByID(gameId);
-    if (game) {
-      game.players = players;
-    }
-  }
-
-  addReckord(gameId: number, players: IGameDBReckordPlayer[]) {
-    this.reckords.push({
-      gameId,
-      players,
-    });
+  addNewGame(game: Game) {
+    this.reckords.push(game);
   }
 
   getReckordByID(id: number) {
     return this.reckords.find((item) => item.gameId === id);
-  }
-
-  getReckordByIdx(gameId: number, index: number) {
-    const game = this.getReckordByID(gameId);
-    return game?.players.find((item) => item.index === index);
-  }
-
-  getOppRecordByIdx(gameId: number, index: number) {
-    const game = this.getReckordByID(gameId);
-    return game?.players.find((item) => item.index !== index);
   }
 
   deleteReckordById(id: number) {
