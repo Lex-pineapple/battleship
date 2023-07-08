@@ -3,7 +3,6 @@ import ws from 'ws';
 import Handler from './handler';
 import SocketDB from '../db/socketDB';
 import { IUpdateData } from 'src/types';
-// import { WSCommand } from 'src/types';
 
 const handler = new Handler();
 const socketDB = new SocketDB();

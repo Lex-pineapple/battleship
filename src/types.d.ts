@@ -104,7 +104,7 @@ export namespace WSCommand {
     };
     direction: boolean;
     length: number;
-    type: 'small' | 'medium' | 'large' | 'huge';
+    type: TAttackStatus;
   }
 
   interface IAttackRes {

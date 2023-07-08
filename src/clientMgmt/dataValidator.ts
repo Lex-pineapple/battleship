@@ -1,5 +1,3 @@
-import { WSCommand } from 'src/types';
-
 class DataValidator {
   static validateRawData(data: unknown) {
     if (data instanceof Object) {

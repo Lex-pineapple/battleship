@@ -232,7 +232,7 @@ class Game {
     this.initShipsData(bot.index, genShips);
   }
 
-  generateShip(bot: IGamePlayers, shipLength: number) {
+  generateShip(bot: IGamePlayers, shipLength: number): WSCommand.IncShipData {
     const types = ['small', 'medium', 'large', 'huge'];
     const tail = {
       x: Math.floor(Math.random() * 10),
@@ -242,7 +242,7 @@ class Game {
     const head = direction
       ? { ...tail, y: tail.y + shipLength }
       : { ...tail, x: tail.x + shipLength };
-    if (this.checkIfOutOfBounds(head)) this.generateShip(shipLength);
+    if (this.checkIfOutOfBounds(head)) this.generateShip(bot, shipLength);
     for (let i = 0; i < bot.shipsState.ships.length; i++) {
       const currLine = {
         tail,
@@ -263,7 +263,7 @@ class Game {
               y: bot.shipsState.ships[i].position.y,
             },
       };
-      if (this.checkIntercept(currLine, checkLine)) this.generateShip(shipLength);
+      if (this.checkIntercept(currLine, checkLine)) this.generateShip(bot, shipLength);
     }
     return {
       position: {
