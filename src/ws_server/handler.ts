@@ -14,7 +14,7 @@ import UserDB from '../db/userDB';
 import RoomDB from '../db/roomDB';
 import GameDB from '../db/gameDB';
 import Game from '../clientMgmt/game';
-import ErrorMgmt from 'src/clientMgmt/errorMgmt';
+import ErrorMgmt from '../clientMgmt/errorMgmt';
 
 class Handler {
   playerDB: UserDB;
@@ -27,6 +27,8 @@ class Handler {
   }
 
   async handleMessage(data: string | Buffer[] | Buffer | ArrayBuffer, player: Player) {
+    console.log('message', data);
+
     if (typeof data !== 'string') return ErrorMgmt.createGenErrResp();
     const parsedData = parseRawData(data);
     if (parsedData) {
@@ -39,32 +41,52 @@ class Handler {
   }
 
   async delegateRequest(data: WSCommand.IGenReq, player: Player): Promise<IUpdateData> {
-    let updData = innerUpdTemplate;
+    const updData = innerUpdTemplate;
+
     switch (data.type) {
       case 'reg': {
         const clientData = await this.handleReqistration(player, data.data);
-        updData.current = { data: clientData };
-        return updData;
+        return {
+          ...updData,
+          current: {
+            data: clientData,
+          },
+        };
       }
       case 'create_room': {
         this.handleCreateRoom();
-        updData.all = { data: [this.handleUpdateRoom(), this.handleUpdateWinners()] };
-        return updData;
+        return {
+          ...updData,
+          all: {
+            data: [this.handleUpdateRoom(), this.handleUpdateWinners()],
+          },
+        };
       }
       case 'add_user_to_room': {
         const clientData = this.handleAddUserToRoom(data.data, player);
         if (clientData.room) {
-          updData.all = { data: [this.handleUpdateRoom()] };
-          updData.game = clientData.room;
+          return {
+            ...updData,
+            all: {
+              data: [this.handleUpdateRoom()],
+            },
+            game: clientData.room,
+          };
         } else if (clientData.all) {
-          updData.all = clientData.all;
-        } else updData = clientData;
-        return updData;
+          return {
+            ...updData,
+            all: clientData.all,
+          };
+        } else return clientData;
       }
       case 'add_ships': {
         const clientData = this.handleAddShips(data.data);
         if (clientData) {
           updData.game = clientData.game;
+          return {
+            ...updData,
+            game: clientData.game,
+          };
         }
         return updData;
       }
@@ -72,13 +94,15 @@ class Handler {
         return this.delegateAttack(data.data);
       }
       case 'randomAttack': {
-        const clientData = this.handleRandomAttack(data.data, player);
-        return clientData;
+        return this.delegateAttack(data.data);
       }
-      case 'single_player': {
-        const clientData = this.handleSinglePlayer(data.data);
-        updData.game = { data: clientData.data as ICreateGameRet[] };
-        return updData;
+      case 'single_play': {
+        // this.handleSinglePlayer(player);
+        const clientData = this.handleSinglePlayer(player);
+        return {
+          ...updData,
+          game: clientData.game,
+        };
       }
       default:
         return ErrorMgmt.createGenErrResp();
@@ -143,7 +167,7 @@ class Handler {
                 idPlayer: i,
               }),
             }),
-            this.handleTurn('', 1, 0),
+            this.handleTurn(0),
           ],
         });
       }
@@ -175,6 +199,7 @@ class Handler {
         this.fillBotShips(game);
 
         game.initShipsData(valData.indexPlayer, valData.ships);
+
         if (game.checkShipsFill()) {
           // start game
           const startGameRes = resTemplates.start_game;
@@ -189,21 +214,22 @@ class Handler {
           };
 
           game.players.forEach((player) => {
-            if (player.type !== 'bot' && player.id) {
+            if (player.type !== 'bot' && player.id !== undefined && player.id !== null) {
               startGameData.game.data.push({
                 id: player.id,
                 data: [
                   JSON.stringify({
                     ...startGameRes,
-                    data: {
+                    data: JSON.stringify({
                       ships: player.shipsState.ships,
                       currentPlayerIndex: valData.indexPlayer,
-                    },
+                    }),
                   }),
                 ],
               });
             }
           });
+
           return startGameData;
         }
       }
@@ -221,21 +247,29 @@ class Handler {
       const defenderIdx = attackerIdx === 0 ? 1 : 0;
       let attackResult: ICalcAttackRet;
       if (game) {
-        if ('x' in parsedData && 'y' in parsedData) {
-          attackResult = this.handleSpecAttack(
-            game,
-            attackerIdx,
-            defenderIdx,
-            parsedData as WSCommand.IAttackResData
-          );
-        } else attackResult = this.handleRandAttack(game, attackerIdx, defenderIdx);
+        if (attackerIdx === game.playerTurnIdx) {
+          if ('x' in parsedData && 'y' in parsedData) {
+            attackResult = this.handleSpecAttack(
+              game,
+              attackerIdx,
+              defenderIdx,
+              parsedData as WSCommand.IAttackResData
+            );
+          } else attackResult = this.handleRandAttack(game, attackerIdx, defenderIdx);
 
-        const updData = innerUpdTemplate;
-        const res = this.attackResponse(game, attackResult, updData);
-        if (attackResult.finished) {
-          return this.handleFinishGame(game, attackerIdx, res);
-        } else
-          return this.handleNextMove(res, attackResult.data.status, defenderIdx, attackerIdx, game);
+          const updData = innerUpdTemplate;
+          const res = this.attackResponse(game, attackResult, updData);
+          if (attackResult.finished) {
+            return this.handleFinishGame(game, attackerIdx, res);
+          } else
+            return this.handleNextMove(
+              res,
+              attackResult.data.status,
+              defenderIdx,
+              attackerIdx,
+              game
+            );
+        }
       }
     }
     return ErrorMgmt.createGenErrResp();
@@ -249,12 +283,6 @@ class Handler {
     }
     this.roomDB.deleteReckordById(game.gameId);
     this.gameDB.deleteReckordById(game.gameId);
-    res = {
-      ...res,
-      all: {
-        data: [this.handleUpdateRoom()],
-      },
-    };
 
     const finishRes = resTemplates.finish;
     if (res.game instanceof Object) {
@@ -269,8 +297,11 @@ class Handler {
           })
         )
       );
-      res = {
+      return {
         ...res,
+        all: {
+          data: [this.handleUpdateRoom()],
+        },
         game: finishGameResData,
       };
     }
@@ -280,20 +311,22 @@ class Handler {
 
   attackResponse(game: Game, attackResult: ICalcAttackRet, updData: IUpdateData) {
     const resAttack = resTemplates.attack;
-    resAttack.data = JSON.stringify(attackResult);
+    resAttack.data = JSON.stringify(attackResult.data);
     const gameReturnDataArray: ICreateGameRet[] = [];
     game.players.forEach((player) => {
-      if (player.type === 'bot' && player.id)
+      if (player.type !== 'bot' && player.id !== undefined && player.id !== null)
         gameReturnDataArray.push({
           id: player.id,
           data: [JSON.stringify(resAttack)],
         });
     });
 
-    updData.game = {
-      data: gameReturnDataArray,
+    return {
+      ...updData,
+      game: {
+        data: gameReturnDataArray,
+      },
     };
-    return updData;
   }
 
   handleNextMove(
@@ -304,25 +337,25 @@ class Handler {
     game: Game
   ) {
     if (updData.game instanceof Object) {
+      const currentPlayer = status === 'miss' ? defenderIdx : attackerIdx;
+      game.playerTurnIdx = currentPlayer;
       const finishGameResData = updData.game;
-      finishGameResData.data.forEach((item) =>
-        item.data.push(this.handleTurn(status, defenderIdx, attackerIdx))
-      );
-      updData = {
+      finishGameResData.data.forEach((item) => item.data.push(this.handleTurn(currentPlayer)));
+
+      return {
         ...updData,
+        ...this.handleBotTurn(currentPlayer, game, updData),
         game: finishGameResData,
       };
-
-      const currentPlayer = status === 'miss' ? defenderIdx : attackerIdx;
-      this.handleBotTurn(currentPlayer, game, updData);
     }
     return updData;
   }
 
   handleBotTurn(currentPlayer: number, game: Game, updData: IUpdateData) {
+    console.log('handlebot turn');
+
     const player = game.getPlayerByIdx(currentPlayer);
     if (player && player.type === 'bot') {
-      updData.botPlay.isPlay = true;
       const attackData = JSON.stringify({
         type: 'randomAttack',
         data: JSON.stringify({
@@ -331,7 +364,13 @@ class Handler {
         }),
         id: 0,
       });
-      updData.botPlay.data = attackData;
+      return {
+        ...updData,
+        botPlay: {
+          isPlay: true,
+          data: attackData,
+        },
+      };
     }
     return updData;
   }
@@ -350,9 +389,9 @@ class Handler {
     return game.calculateAttack(attackerIdx, defenderIdx, moveCoord.x, moveCoord.y);
   }
 
-  handleTurn(status: string, defenderIdx: number, attackerIdx: number) {
+  handleTurn(currentPlayer: number) {
     const turnRes = resTemplates.turn;
-    const currentPlayer = status === 'miss' ? defenderIdx : attackerIdx;
+
     return JSON.stringify({
       ...turnRes,
       data: JSON.stringify({
@@ -361,25 +400,23 @@ class Handler {
     });
   }
 
-  handleSinglePlayer(data: string) {
-    const parsedData = parseRawData(data);
-    // if (!parsedData) handle error
+  handleSinglePlayer(player: Player) {
     const virtRoomData = {
       roomId: this.roomDB.reckords.length,
       roomUsers: [
         {
-          name: parsedData.name,
+          name: player.name,
           index: 0,
-          id: parsedData.id,
+          id: player.id,
         },
         false,
       ],
     };
-    const returnData = {
-      type: 'room',
-      data: this.handleCreateGame(virtRoomData),
+    return {
+      game: {
+        data: this.handleCreateGame(virtRoomData),
+      },
     };
-    return returnData;
   }
 
   fillBotShips(game: Game) {

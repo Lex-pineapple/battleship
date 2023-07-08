@@ -9,6 +9,7 @@ interface ICoord {
 
 class Game {
   gameId: number;
+  playerTurnIdx: number;
   players: IGamePlayers[];
   constructor(
     id: number,
@@ -16,11 +17,12 @@ class Game {
     player2: IRoomDBReckordUser | boolean
   ) {
     this.gameId = id;
+    this.playerTurnIdx = 0;
     this.players = this.initPlayers(player1, player2);
   }
 
   initPlayers(player1: IRoomDBReckordUser | boolean, player2: IRoomDBReckordUser | boolean) {
-    return [this.createPlayer(player1, 0), this.createPlayer(player2, 0)];
+    return [this.createPlayer(player1, 0), this.createPlayer(player2, 1)];
   }
 
   createPlayer(player: IRoomDBReckordUser | boolean, idx: number) {
@@ -64,8 +66,9 @@ class Game {
   }
 
   // Player section
-  initShipsData(playerIdx: number, ships: WSCommand.IncShipData[]) {
+  initShipsData(playerIdx: number, ships: WSCommand.IGenShipData[]) {
     const player = this.getPlayerByIdx(playerIdx);
+
     if (player) {
       player.shipsState.totalAlive = ships.length;
       for (let i = 0; i < ships.length; i++) {
@@ -186,10 +189,10 @@ class Game {
       const slotIdx = coord.attPoint2 - coord.defPoint2;
       if (!shipData.slots[slotIdx]) {
         shipData.slots[slotIdx] = 'x';
-        if (shipData.slots.find((i) => i === '')) return 'hit';
+        if (shipData.slots.find((i) => i === '')) return 'shot';
         else {
           defender.shipsState.totalAlive--;
-          return 'kill';
+          return 'killed';
         }
       }
     }
@@ -232,8 +235,8 @@ class Game {
     this.initShipsData(bot.index, genShips);
   }
 
-  generateShip(bot: IGamePlayers, shipLength: number): WSCommand.IncShipData {
-    const types = ['small', 'medium', 'large', 'huge'];
+  generateShip(bot: IGamePlayers, shipLength: number): WSCommand.IGenShipData {
+    const types: ['small', 'medium', 'large', 'huge'] = ['small', 'medium', 'large', 'huge'];
     const tail = {
       x: Math.floor(Math.random() * 10),
       y: Math.floor(Math.random() * 10),

@@ -35,25 +35,33 @@ async function handleCLientsUpdate(data: IUpdateData, wsClient: ws, player: Play
   if (data.current && data.current instanceof Object) {
     data.current.data.forEach((item) => wsClient.send(item));
   }
+  if (data.room && data.room instanceof Object) {
+    data.room.data.forEach((item) => {
+      const socket = socketDB.getReckordByID(item.id);
+      item.data.forEach((rec) => {
+        socket?.socket.send(rec);
+      });
+    });
+  }
+  if (data.game && data.game instanceof Object) {
+    // console.log('data.game', data.game);
+
+    data.game.data.forEach((item) => {
+      const socket = socketDB.getReckordByID(item.id);
+      item.data.forEach((rec) => {
+        // console.log('rec id', item.id, rec);
+
+        socket?.socket.send(rec);
+      });
+    });
+  }
   if (data.all && data.all instanceof Object) {
     for (let i = 0; i < socketDB.reckords.length; i++) {
       data.all.data.forEach((item) => socketDB.reckords[i].socket.send(item));
     }
   }
-  if (data.room && data.room instanceof Object) {
-    data.room.data.forEach((item) => {
-      const socket = socketDB.getReckordByID(item.id);
-      socket?.socket.send(item.data);
-    });
-  }
-  if (data.game && data.game instanceof Object) {
-    data.game.data.forEach((item) => {
-      // console.log(item.data);
+  console.log(data.botPlay.isPlay);
 
-      const socket = socketDB.getReckordByID(item.id);
-      socket?.socket.send(item.data);
-    });
-  }
   if (data.botPlay.isPlay) {
     const message = await handler.handleMessage(data.botPlay.data, player);
     if (message) await handleCLientsUpdate(message, wsClient, player);

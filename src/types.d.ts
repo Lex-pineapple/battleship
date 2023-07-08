@@ -12,7 +12,7 @@ export namespace WSCommand {
       | 'add_user_to_room'
       | 'add_ships'
       | 'randomAttack'
-      | 'single_player';
+      | 'single_play';
     data: string;
     id: number;
   }
@@ -93,7 +93,7 @@ export namespace WSCommand {
 
   interface IAddShipsToGameResData {
     gameId: number;
-    ships: IncShipData[];
+    ships: IGenShipData[];
     indexPlayer: number;
   }
 
@@ -105,6 +105,17 @@ export namespace WSCommand {
     direction: boolean;
     length: number;
     type: TAttackStatus;
+  }
+
+  interface IGenShipData {
+    position: {
+      x: number;
+      y: number;
+    };
+    slots?: [];
+    direction: boolean;
+    length: number;
+    type: TShipType;
   }
 
   interface IAttackRes {
@@ -278,3 +289,4 @@ export interface ICalcAttackRet {
 }
 
 export type TAttackStatus = 'miss' | 'killed' | 'shot';
+export type TShipType = 'small' | 'medium' | 'large' | 'huge';
