@@ -23,7 +23,7 @@ function onConnect(wsClient: ws) {
 
   wsClient.onmessage = async function (event) {
     const message = await handler.handleMessage(event.data, newCommer);
-    if (message) handleCLientsUpdate(message, wsClient);
+    if (message) await handleCLientsUpdate(message, wsClient, newCommer);
   };
 
   wsClient.on('close', () => {});
@@ -32,7 +32,7 @@ function onConnect(wsClient: ws) {
   });
 }
 
-function handleCLientsUpdate(data: IUpdateData, wsClient: ws) {
+async function handleCLientsUpdate(data: IUpdateData, wsClient: ws, player: Player) {
   if (data.current && data.current instanceof Object) {
     data.current.data.forEach((item) => wsClient.send(item));
   }
@@ -54,6 +54,10 @@ function handleCLientsUpdate(data: IUpdateData, wsClient: ws) {
       const socket = socketDB.getReckordByID(item.id);
       socket?.socket.send(item.data);
     });
+  }
+  if (data.botPlay.isPlay) {
+    const message = await handler.handleMessage(data.botPlay.data, player);
+    if (message) await handleCLientsUpdate(message, wsClient, player);
   }
 }
 

@@ -1,3 +1,5 @@
+import { innerUpdTemplate } from '../clientMgmt/resTemplates';
+
 class ErrorMgmt {
   static createAuthErrorMsg(index: number, id: number, msg: string, name?: string) {
     return JSON.stringify({
@@ -10,6 +12,19 @@ class ErrorMgmt {
       }),
       id,
     });
+  }
+
+  static createGenErrResp() {
+    const updData = innerUpdTemplate;
+    const data = [
+      JSON.stringify({
+        type: 'error',
+        data: '',
+        id: 0,
+      }),
+    ];
+    updData.current = { data };
+    return updData;
   }
 }
 

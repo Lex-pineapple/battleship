@@ -10,9 +10,11 @@ class DataValidator {
     } else return false;
   }
 
-  static validateAuthData(data: WSCommand.IAuthReqData) {
-    if (!('name' in data && typeof data.name === 'string')) return false;
-    if (!('password' in data && typeof data.password === 'string')) return false;
+  static validateAuthData(data: unknown) {
+    if (data instanceof Object) {
+      if (!('name' in data && typeof data.name === 'string')) return false;
+      if (!('password' in data && typeof data.password === 'string')) return false;
+    }
     return true;
   }
 }

@@ -30,13 +30,15 @@ export namespace WSCommand {
 
   interface IAuthARes {
     type: 'reg';
-    data: {
-      name: string;
-      index: number;
-      error: boolean;
-      errorText: string;
-    };
+    data: IAuthResData;
     id: number;
+  }
+
+  interface IAuthResData {
+    name: string;
+    index: number;
+    error: boolean;
+    errorText: string;
   }
 
   interface IUpdateWinReq {
@@ -69,10 +71,12 @@ export namespace WSCommand {
 
   interface IAddPlayerToRoomRes {
     type: 'add_player_to_room';
-    data: {
-      indexRoom: number;
-    };
+    data: IAddPlayerToRoomResData;
     id: number;
+  }
+
+  interface IAddPlayerToRoomResData {
+    indexRoom: number;
   }
 
   interface IUpdateRoomReq {
@@ -83,33 +87,37 @@ export namespace WSCommand {
 
   interface IAddShipsToGameRes {
     type: 'add_ships';
-    data: {
-      gameId: number;
-      ships: [
-        {
-          position: {
-            x: number;
-            y: number;
-          };
-          direction: boolean;
-          length: number;
-          type: 'small' | 'medium' | 'large' | 'huge';
-        }
-      ];
-      indexPlayer: number;
-    };
+    data: IAddShipsToGameResData;
     id: number;
+  }
+
+  interface IAddShipsToGameResData {
+    gameId: number;
+    ships: IncShipData[];
+    indexPlayer: number;
+  }
+
+  interface IncShipData {
+    position: {
+      x: number;
+      y: number;
+    };
+    direction: boolean;
+    length: number;
+    type: 'small' | 'medium' | 'large' | 'huge';
   }
 
   interface IAttackRes {
     type: 'attack';
-    data: {
-      gameID: number;
-      x: number;
-      y: number;
-      indexPlayer: number;
-    };
+    data: IAttackResData;
     id: number;
+  }
+
+  interface IAttackResData {
+    gameId: number;
+    x: number;
+    y: number;
+    indexPlayer: number;
   }
 
   interface IAttackReq {
@@ -119,21 +127,24 @@ export namespace WSCommand {
   }
 
   interface IAttackReqData {
+    finished?: boolean;
     position: {
       x: number;
       y: number;
     };
     currentPlayer: number;
-    status: 'miss' | 'killed' | 'shot';
+    status: TAttackStatus;
   }
 
   interface IRandAttackRes {
     type: 'randomAttack';
-    data: {
-      gameID: number;
-      indexPlayer: number;
-    };
+    data: IRandAttackResData;
     id: 0;
+  }
+
+  interface IRandAttackResData {
+    gameId: number;
+    indexPlayer: number;
   }
 
   interface IChangeTurnReq {
@@ -169,6 +180,10 @@ export interface IPlayer {
 }
 
 export interface IUpdateData {
+  botPlay: {
+    isPlay: boolean;
+    data: string;
+  };
   current:
     | {
         data: string[];
@@ -256,3 +271,10 @@ interface IMove {
   x: number;
   y: number;
 }
+
+export interface ICalcAttackRet {
+  finished: boolean;
+  data: WSCommand.IAttackReqData;
+}
+
+export type TAttackStatus = 'miss' | 'killed' | 'shot';

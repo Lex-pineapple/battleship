@@ -1,4 +1,4 @@
-import { IGamePlayers, IRoomDBReckordUser, IShipData } from '../types';
+import { IGamePlayers, IRoomDBReckordUser, IShipData, TAttackStatus, WSCommand } from '../types';
 
 interface ICoord {
   attPoint1: number;
@@ -58,8 +58,13 @@ class Game {
     return this.players.find((item) => item.id === id);
   }
 
+  hasBotPlayer() {
+    const botPlayer = this.players.find((player) => player.type === 'bot');
+    return botPlayer;
+  }
+
   // Player section
-  initShipsData(playerIdx: number, ships: IShipData[]) {
+  initShipsData(playerIdx: number, ships: WSCommand.IncShipData[]) {
     const player = this.getPlayerByIdx(playerIdx);
     if (player) {
       player.shipsState.totalAlive = ships.length;
@@ -81,7 +86,7 @@ class Game {
 
   calculateAttack(attackerIdx: number, defenderIdx: number, x: number, y: number) {
     const defender = this.getPlayerByIdx(defenderIdx);
-    let res = 'miss';
+    let res: TAttackStatus = 'miss';
     if (defender) {
       if (this.ckeckIfMoveValid(x, y, attackerIdx))
         return {

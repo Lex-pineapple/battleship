@@ -24,6 +24,7 @@ class UserDB {
         };
       });
     winners.sort((a, b) => b.wins - a.wins);
+    return winners;
   }
 }
 

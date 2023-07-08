@@ -60,6 +60,10 @@ const resTemplates = {
 };
 
 const innerUpdTemplate: IUpdateData = {
+  botPlay: {
+    isPlay: false,
+    data: '',
+  },
   current: false,
   all: false,
   room: false,
