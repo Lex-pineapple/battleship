@@ -3,7 +3,6 @@ import ws from 'ws';
 import Handler from './handler';
 import SocketDB from '../db/socketDB';
 import { IUpdateData } from 'src/types';
-import { innerUpdTemplate } from '../clientMgmt/resTemplates';
 
 const handler = new Handler();
 const socketDB = new SocketDB();
@@ -29,31 +28,20 @@ function onConnect(wsClient: ws) {
   };
 
   wsClient.on('close', () => {
-    console.log('closing socket id', newCommer.id);
-
-    const updData = innerUpdTemplate;
+    console.log('closing socket', newCommer.id);
 
     const playersToClean = handler.clean(newCommer);
-    playersToClean.forEach((index) => {
-      const res = handler.handleFinishGame(index.idxInGame, {
-        ...updData,
-        game: {
-          data: [
-            {
-              id: index.id,
-              data: [],
-            },
-          ],
-        },
+
+    if (playersToClean && playersToClean.game && playersToClean.game instanceof Object) {
+      playersToClean.game.data.forEach((item) => {
+        const socket = socketDB.getReckordByID(item.id);
+
+        item.data.forEach((rec) => {
+          socket?.socket.send(rec);
+        });
       });
+    }
 
-      if (typeof res.game !== 'boolean') {
-        console.log(res.game.data[0].data[0]);
-        console.log(index.id);
-
-        socketDB.reckords[index.id].socket.send(res.game.data[0].data[0]);
-      }
-    });
     socketDB.deleteReckordById(newCommer.id);
     socketDB.reckords.forEach((reckord) => {
       reckord.socket.send(handler.handleUpdateRoom());
@@ -78,14 +66,9 @@ async function handleCLientsUpdate(data: IUpdateData, wsClient: ws, player: Play
     });
   }
   if (data.game && data.game instanceof Object) {
-    // console.log('data', data.game.data);
-    // console.log('data.game', data.game);
-
     data.game.data.forEach((item) => {
       const socket = socketDB.getReckordByID(item.id);
       item.data.forEach((rec) => {
-        // console.log('rec id', item.id, rec);
-
         socket?.socket.send(rec);
       });
     });

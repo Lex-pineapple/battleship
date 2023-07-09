@@ -27,36 +27,41 @@ class Handler {
   }
 
   clean(player: Player) {
-    const playerToDel: {
-      id: number;
-      idxInGame: number;
-    }[] = [];
-    this.playerDB.deleteReckordById(player.id);
+    const updData = innerUpdTemplate;
+
+    let winnerIdx = 0;
+
+    const finishData: IUpdateData = {
+      ...updData,
+      game: {
+        data: [],
+      },
+    };
+
     if (player.roomStat.inRoom && player.roomStat.roomId !== null) {
       const room = this.roomDB.getReckordByID(player.roomStat.roomId);
-      console.log('roomUsers', room?.roomUsers);
-
+      const game = this.gameDB.getReckordByID(player.roomStat.roomId);
       room?.roomUsers.forEach((user) => {
         if (typeof user !== 'boolean') {
           const innplayer = this.playerDB.getReckordByID(user.id);
           if (innplayer) {
             innplayer.roomStat.inRoom = false;
             innplayer.roomStat.roomId = null;
-            if (innplayer.id !== player.id)
-              playerToDel.push({
-                id: innplayer.id,
-                idxInGame: user.index,
-              });
+            if (innplayer.id !== player.id) winnerIdx = user.index;
           }
+          if (typeof finishData.game !== 'boolean')
+            finishData.game.data.push({
+              id: user.id,
+              data: [],
+            });
         }
       });
-      this.gameDB.deleteReckordById(player.roomStat.roomId);
-    }
-    if (player.roomStat.inRoom && player.roomStat.roomId !== null) {
+      this.playerDB.deleteReckordById(player.id);
       this.roomDB.deleteReckordById(player.roomStat.roomId);
+      this.gameDB.deleteReckordById(player.roomStat.roomId);
+
+      return this.handleFinishGame(winnerIdx, finishData, game);
     }
-    console.log(playerToDel);
-    return playerToDel;
   }
 
   async handleMessage(data: string | Buffer[] | Buffer | ArrayBuffer, player: Player) {
