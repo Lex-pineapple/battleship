@@ -38,7 +38,7 @@ class Handler {
     } else return ErrorMgmt.createGenErrResp();
   }
 
-  async delegateRequest(data: WSCommand.IGenReq, player: Player): Promise<IUpdateData> {
+  async delegateRequest(data: WSCommand.IGenReq, player: Player): Promise<IUpdateData | undefined> {
     const updData = innerUpdTemplate;
 
     switch (data.type) {
@@ -62,20 +62,23 @@ class Handler {
       }
       case 'add_user_to_room': {
         const clientData = this.handleAddUserToRoom(data.data, player);
-        if (clientData.room) {
-          return {
-            ...updData,
-            all: {
-              data: [this.handleUpdateRoom()],
-            },
-            game: clientData.room,
-          };
-        } else if (clientData.all) {
-          return {
-            ...updData,
-            all: clientData.all,
-          };
-        } else return clientData;
+        if (clientData) {
+          if (clientData.room) {
+            return {
+              ...updData,
+              all: {
+                data: [this.handleUpdateRoom()],
+              },
+              game: clientData.room,
+            };
+          } else if (clientData.all) {
+            return {
+              ...updData,
+              all: clientData.all,
+            };
+          }
+        }
+        return undefined;
       }
       case 'add_ships': {
         const clientData = this.handleAddShips(data.data);
@@ -89,10 +92,14 @@ class Handler {
         return updData;
       }
       case 'attack': {
-        return this.delegateAttack(data.data);
+        const attackRes = this.delegateAttack(data.data);
+        if (attackRes) return attackRes;
+        return undefined;
       }
       case 'randomAttack': {
-        return this.delegateAttack(data.data);
+        const attackRes = this.delegateAttack(data.data);
+        if (attackRes) return attackRes;
+        return undefined;
       }
       case 'single_play': {
         // this.handleSinglePlayer(player);
@@ -126,11 +133,14 @@ class Handler {
       const valData = parsedData as WSCommand.IAddPlayerToRoomResData;
       const targetRoom = this.roomDB.getReckordByID(valData.indexRoom);
       if (targetRoom) {
-        if (targetRoom.roomUsers.length < 2) {
+        const userToAdd = this.roomDB.getUserById(valData.indexRoom, player.id);
+
+        if (targetRoom.roomUsers.length < 2 && !userToAdd) {
           this.roomDB.addUserToRoom(valData.indexRoom, player.name, player.id);
         }
 
-        if (targetRoom.roomUsers.length === 2) {
+        if (!targetRoom.inGame && targetRoom.roomUsers.length === 2) {
+          targetRoom.inGame = true;
           return {
             room: {
               data: this.handleCreateGame(targetRoom),
@@ -143,7 +153,7 @@ class Handler {
           data: [this.handleUpdateRoom()],
         },
       };
-    } else return ErrorMgmt.createGenErrResp();
+    }
   }
 
   handleCreateGame(room: IRoomDBReckord): ICreateGameRet[] {
@@ -271,7 +281,6 @@ class Handler {
         }
       }
     }
-    return ErrorMgmt.createGenErrResp();
   }
 
   handleFinishGame(game: Game, attackerIdx: number, res: IUpdateData) {
@@ -351,7 +360,7 @@ class Handler {
   }
 
   handleBotTurn(currentPlayer: number, game: Game, updData: IUpdateData) {
-    console.log('handlebot turn');
+    // console.log('handlebot turn');
 
     const player = game.getPlayerByIdx(currentPlayer);
     if (player && player.type === 'bot') {
@@ -402,6 +411,7 @@ class Handler {
   handleSinglePlayer(player: Player) {
     const virtRoomData = {
       roomId: this.roomDB.reckords.length,
+      inGame: true,
       roomUsers: [
         {
           name: player.name,

@@ -10,6 +10,7 @@ class RoomDB {
     this.reckords.push({
       roomId: this.reckords.length,
       roomUsers: [],
+      inGame: false,
     });
   }
 
@@ -37,6 +38,13 @@ class RoomDB {
 
   getReckordByID(id: number) {
     return this.reckords.find((item) => item.roomId === id);
+  }
+
+  getUserById(roomId: number, id: number) {
+    const room = this.getReckordByID(roomId);
+    return room?.roomUsers.find((item) => {
+      if (typeof item !== 'boolean') return item.id === id;
+    });
   }
 
   deleteReckordById(id: number) {

@@ -224,6 +224,7 @@ export interface ICreateGameRet {
 
 export interface IRoomDBReckord {
   roomId: number;
+  inGame: boolean;
   roomUsers: (IRoomDBReckordUser | boolean)[];
 }
 
