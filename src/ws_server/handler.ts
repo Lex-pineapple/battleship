@@ -26,6 +26,39 @@ class Handler {
     this.gameDB = new GameDB();
   }
 
+  clean(player: Player) {
+    const playerToDel: {
+      id: number;
+      idxInGame: number;
+    }[] = [];
+    this.playerDB.deleteReckordById(player.id);
+    if (player.roomStat.inRoom && player.roomStat.roomId !== null) {
+      const room = this.roomDB.getReckordByID(player.roomStat.roomId);
+      console.log('roomUsers', room?.roomUsers);
+
+      room?.roomUsers.forEach((user) => {
+        if (typeof user !== 'boolean') {
+          const innplayer = this.playerDB.getReckordByID(user.id);
+          if (innplayer) {
+            innplayer.roomStat.inRoom = false;
+            innplayer.roomStat.roomId = null;
+            if (innplayer.id !== player.id)
+              playerToDel.push({
+                id: innplayer.id,
+                idxInGame: user.index,
+              });
+          }
+        }
+      });
+      this.gameDB.deleteReckordById(player.roomStat.roomId);
+    }
+    if (player.roomStat.inRoom && player.roomStat.roomId !== null) {
+      this.roomDB.deleteReckordById(player.roomStat.roomId);
+    }
+    console.log(playerToDel);
+    return playerToDel;
+  }
+
   async handleMessage(data: string | Buffer[] | Buffer | ArrayBuffer, player: Player) {
     if (typeof data !== 'string') return ErrorMgmt.createGenErrResp();
     const parsedData = parseRawData(data);
@@ -137,6 +170,8 @@ class Handler {
         const userToAdd = this.roomDB.getUserById(valData.indexRoom, player.id);
 
         if (targetRoom.roomUsers.length < 2 && !userToAdd) {
+          player.roomStat.inRoom = true;
+          player.roomStat.roomId = targetRoom.roomId;
           this.roomDB.addUserToRoom(valData.indexRoom, player.name, player.id);
         }
 
@@ -303,7 +338,7 @@ class Handler {
           const updData = innerUpdTemplate;
           const res = this.attackResponse(game, attackResult, updData);
           if (attackResult.finished) {
-            return this.handleFinishGame(game, attackerIdx, res);
+            return this.handleFinishGame(attackerIdx, res, game);
           } else
             return this.handleNextMove(
               res,
@@ -320,15 +355,17 @@ class Handler {
     return updData;
   }
 
-  handleFinishGame(game: Game, attackerIdx: number, res: IUpdateData) {
-    const attacker = game.getPlayerByIdx(attackerIdx);
+  handleFinishGame(attackerIdx: number, res: IUpdateData, game?: Game) {
+    if (game) {
+      const attacker = game.getPlayerByIdx(attackerIdx);
 
-    if (attacker && attacker.id !== undefined && attacker.id !== null) {
-      const player = this.playerDB.getReckordByID(attacker.id);
-      if (player) player.wins++;
+      if (attacker && attacker.id !== undefined && attacker.id !== null) {
+        const player = this.playerDB.getReckordByID(attacker.id);
+        if (player) player.wins++;
+      }
+      this.roomDB.deleteReckordById(game.gameId);
+      this.gameDB.deleteReckordById(game.gameId);
     }
-    this.roomDB.deleteReckordById(game.gameId);
-    this.gameDB.deleteReckordById(game.gameId);
 
     const finishRes = resTemplates.finish;
     console.log(finishRes.type);

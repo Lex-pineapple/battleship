@@ -7,11 +7,27 @@ class Player {
   name: string;
   password: string;
   wins: number;
+  roomStat: {
+    inRoom: boolean;
+    roomId: number | null;
+  };
+  gameStat: {
+    inGame: boolean;
+    gameId: number | null;
+  };
   constructor(id: number) {
     this.id = id;
     this.name = '';
     this.password = '';
     this.wins = 0;
+    this.roomStat = {
+      inRoom: false,
+      roomId: null,
+    };
+    this.gameStat = {
+      inGame: false,
+      gameId: null,
+    };
   }
 
   async authorisePlayer(idx: number, userData: string): Promise<WSCommand.IAuthResData> {

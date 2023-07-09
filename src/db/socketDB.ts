@@ -21,6 +21,14 @@ class SocketDB {
   getReckordByID(id: number) {
     return this.reckords.find((item) => item.id === id);
   }
+
+  deleteReckordById(id: number) {
+    const reckord = this.getReckordByID(id);
+    if (reckord) {
+      const reckordIdx = this.reckords.indexOf(reckord);
+      if (reckordIdx > -1) this.reckords.splice(reckordIdx, 1);
+    }
+  }
 }
 
 export default SocketDB;
