@@ -44,6 +44,7 @@ async function handleCLientsUpdate(data: IUpdateData, wsClient: ws, player: Play
     });
   }
   if (data.game && data.game instanceof Object) {
+    // console.log('data', data.game.data);
     // console.log('data.game', data.game);
 
     data.game.data.forEach((item) => {

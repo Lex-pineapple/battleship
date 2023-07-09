@@ -5,7 +5,7 @@ import {
   ICalcAttackRet,
   ICreateGameRet,
   IRoomDBReckord,
-  IRoomDBReckordUser,
+  // IRoomDBReckordUser,
   IUpdateData,
   WSCommand,
 } from 'src/types';
@@ -83,7 +83,6 @@ class Handler {
       case 'add_ships': {
         const clientData = this.handleAddShips(data.data);
         if (clientData) {
-          updData.game = clientData.game;
           return {
             ...updData,
             game: clientData.game,
@@ -116,6 +115,8 @@ class Handler {
 
   async handleReqistration(player: Player, data: string): Promise<string[]> {
     const regRes = resTemplates.reg;
+    console.log(regRes.type);
+
     const playerIdx = player.id;
     const dataResp = await player.authorisePlayer(playerIdx, data);
     regRes.data = JSON.stringify(dataResp);
@@ -154,6 +155,8 @@ class Handler {
         },
       };
     }
+    const updData = innerUpdTemplate;
+    return updData;
   }
 
   handleCreateGame(room: IRoomDBReckord): ICreateGameRet[] {
@@ -161,44 +164,70 @@ class Handler {
     this.gameDB.addNewGame(newGame);
 
     const resCreate = resTemplates.create_game;
-    const resCreateArray = [];
+    console.log(resCreate.type);
 
-    for (let i = 0; i < room.roomUsers.length; i++) {
-      if (typeof room.roomUsers[i] !== 'boolean' && room.roomUsers[i] instanceof Object) {
+    const resCreateArray: ICreateGameRet[] = [];
+
+    for (let i = 0; i < newGame.players.length; i++) {
+      const playerId = newGame.players[i].id;
+      if (playerId !== null && playerId !== undefined) {
         resCreateArray.push({
-          id: (room.roomUsers[i] as IRoomDBReckordUser).id,
+          id: playerId,
           data: [
             JSON.stringify({
               ...resCreate,
               data: JSON.stringify({
-                idGame: room.roomId,
-                idPlayer: i,
+                idGame: newGame.gameId,
+                idPlayer: newGame.players[i].index,
               }),
             }),
-            this.handleTurn(0),
           ],
         });
       }
     }
+    // for (let i = 0; i < room.roomUsers.length; i++) {
+    //   if (typeof room.roomUsers[i] !== 'boolean' && room.roomUsers[i] instanceof Object) {
+    //     resCreateArray.push({
+    //       id: (room.roomUsers[i] as IRoomDBReckordUser).id,
+    //       data: [
+    //         JSON.stringify({
+    //           ...resCreate,
+    //           data: JSON.stringify({
+    //             idGame: room.roomId,
+    //             idPlayer: i,
+    //           }),
+    //         }),
+    //         this.handleTurn(0, newGame),
+    //       ],
+    //     });
+    //   }
+    // }
 
     return resCreateArray;
   }
 
   handleUpdateRoom() {
     const resUpdate = resTemplates.update_room;
+    console.log(resUpdate.type);
+
     resUpdate.data = JSON.stringify(this.roomDB.reckords);
     return JSON.stringify(resUpdate);
   }
 
   handleUpdateWinners() {
     const winnerData = this.playerDB.getWinners();
+
     const resWinner = resTemplates.update_winners;
+    console.log(resWinner.type);
+
     resWinner.data = JSON.stringify(winnerData);
+
     return JSON.stringify(resWinner);
   }
 
   handleAddShips(data: string) {
     const parsedData = parseRawData(data);
+
     if (parsedData) {
       const valData = parsedData as WSCommand.IAddShipsToGameResData;
       const game = this.gameDB.getReckordByID(valData.gameId);
@@ -210,7 +239,10 @@ class Handler {
 
         if (game.checkShipsFill()) {
           // start game
+
           const startGameRes = resTemplates.start_game;
+          console.log(startGameRes.type);
+
           const startGameData: {
             game: {
               data: ICreateGameRet[];
@@ -233,6 +265,7 @@ class Handler {
                       currentPlayerIndex: valData.indexPlayer,
                     }),
                   }),
+                  this.handleTurn(0, game),
                 ],
               });
             }
@@ -248,6 +281,7 @@ class Handler {
 
   delegateAttack(data: string) {
     const parsedData = parseRawData(data);
+
     if (parsedData instanceof Object) {
       const valData = parsedData as WSCommand.IRandAttackResData;
       const game = this.gameDB.getReckordByID(valData.gameId);
@@ -281,11 +315,15 @@ class Handler {
         }
       }
     }
+
+    const updData = innerUpdTemplate;
+    return updData;
   }
 
   handleFinishGame(game: Game, attackerIdx: number, res: IUpdateData) {
     const attacker = game.getPlayerByIdx(attackerIdx);
-    if (attacker && attacker.id) {
+
+    if (attacker && attacker.id !== undefined && attacker.id !== null) {
       const player = this.playerDB.getReckordByID(attacker.id);
       if (player) player.wins++;
     }
@@ -293,6 +331,8 @@ class Handler {
     this.gameDB.deleteReckordById(game.gameId);
 
     const finishRes = resTemplates.finish;
+    console.log(finishRes.type);
+
     if (res.game instanceof Object) {
       const finishGameResData = res.game;
       finishGameResData.data.forEach((item) =>
@@ -308,7 +348,7 @@ class Handler {
       return {
         ...res,
         all: {
-          data: [this.handleUpdateRoom()],
+          data: [this.handleUpdateRoom(), this.handleUpdateWinners()],
         },
         game: finishGameResData,
       };
@@ -319,6 +359,8 @@ class Handler {
 
   attackResponse(game: Game, attackResult: ICalcAttackRet, updData: IUpdateData) {
     const resAttack = resTemplates.attack;
+    console.log(resAttack.type);
+
     resAttack.data = JSON.stringify(attackResult.data);
     const gameReturnDataArray: ICreateGameRet[] = [];
     game.players.forEach((player) => {
@@ -348,7 +390,9 @@ class Handler {
       const currentPlayer = status === 'miss' ? defenderIdx : attackerIdx;
       game.playerTurnIdx = currentPlayer;
       const finishGameResData = updData.game;
-      finishGameResData.data.forEach((item) => item.data.push(this.handleTurn(currentPlayer)));
+      finishGameResData.data.forEach((item) =>
+        item.data.push(this.handleTurn(currentPlayer, game))
+      );
 
       return {
         ...updData,
@@ -360,8 +404,6 @@ class Handler {
   }
 
   handleBotTurn(currentPlayer: number, game: Game, updData: IUpdateData) {
-    // console.log('handlebot turn');
-
     const player = game.getPlayerByIdx(currentPlayer);
     if (player && player.type === 'bot') {
       const attackData = JSON.stringify({
@@ -397,9 +439,11 @@ class Handler {
     return game.calculateAttack(attackerIdx, defenderIdx, moveCoord.x, moveCoord.y);
   }
 
-  handleTurn(currentPlayer: number) {
+  handleTurn(currentPlayer: number, game: Game) {
     const turnRes = resTemplates.turn;
+    console.log(turnRes.type);
 
+    game.playerTurnIdx = currentPlayer;
     return JSON.stringify({
       ...turnRes,
       data: JSON.stringify({
