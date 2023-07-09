@@ -1,12 +1,5 @@
 import { IGamePlayers, IRoomDBReckordUser, IShipData, TAttackStatus, WSCommand } from '../types';
 
-interface ICoord {
-  attPoint1: number;
-  attPoint2: number;
-  defPoint1: number;
-  defPoint2: number;
-}
-
 class Game {
   gameId: number;
   playerTurnIdx: number;
@@ -77,6 +70,7 @@ class Game {
           slots: new Array(ships[i].length).fill(''),
         });
       }
+      if (player.type === 'bot') console.log(player.shipsState.ships);
     }
   }
 
@@ -89,71 +83,39 @@ class Game {
 
   calculateAttack(attackerIdx: number, defenderIdx: number, x: number, y: number) {
     const defender = this.getPlayerByIdx(defenderIdx);
+
     let res: TAttackStatus = 'miss';
     if (defender) {
-      if (this.ckeckIfMoveValid(x, y, attackerIdx))
-        return {
-          finished: false,
-          data: {
-            position: {
-              x,
-              y,
-            },
-            currentPlayer: attackerIdx,
-            status: res,
-          },
-        };
-      else this.rememberMove(x, y, attackerIdx);
-      defender.shipsState.ships.forEach((shipData) => {
-        if (shipData.direction) {
-          const coord = {
-            attPoint1: x,
-            attPoint2: y,
-            defPoint1: shipData.position.x,
-            defPoint2: shipData.position.y,
-          };
-          res = this.calculateShot(coord, shipData.length, defender, shipData);
-          // if (
-          //   x === shipData.position.x &&
-          //   y >= shipData.position.y &&
-          //   y <= shipData.position.y + shipData.length - 1
-          // ) {
-          //   const slotIdx = y - shipData.position.y;
-          //   if (!shipData.slots[slotIdx]) {
-          //     shipData.slots[slotIdx] = 'x';
-          //     if (shipData.slots.find((i) => i === '')) return 'hit';
-          //     else {
-          //       this.shipsState.totalAlive--;
-          //       return 'kill';
-          //     }
-          //   } else res = 'miss';
-          // }
-        } else {
-          const coord = {
-            attPoint1: y,
-            attPoint2: x,
-            defPoint1: shipData.position.y,
-            defPoint2: shipData.position.x,
-          };
-          res = this.calculateShot(coord, shipData.length, defender, shipData);
-          // if (
-          //   y === shipData.position.y &&
-          //   x >= shipData.position.x &&
-          //   x <= shipData.position.x + shipData.length - 1
-          // ) {
-          //   const slotIdx = x - shipData.position.x;
-          //   if (!shipData.slots[slotIdx]) {
-          //     shipData.slots[slotIdx] = 'x';
-          //     if (shipData.slots.find((i) => i === '')) return 'hit';
-          //     else {
-          //       this.shipsState.totalAlive--;
-          //       return 'kill';
-          //     }
-          //   } else res = 'miss';
-          // }
+      for (let i = 0; i < defender.shipsState.ships.length; i++) {
+        const shipData = defender.shipsState.ships[i];
+        if (x === shipData.position.x && y === shipData.position.y) {
+          const slotIdx = 0;
+          res = this.shoot(shipData, slotIdx, defender);
+          break;
         }
-      });
-      if (defender.shipsState.totalAlive === 0) {
+        if (shipData.direction) {
+          if (
+            x === shipData.position.x &&
+            y >= shipData.position.y &&
+            y <= shipData.position.y + shipData.length - 1
+          ) {
+            const slotIdx = y - shipData.position.y;
+            res = this.shoot(shipData, slotIdx, defender);
+            if (res === 'shot' || res === 'killed') break;
+          }
+        } else {
+          if (
+            y === shipData.position.y &&
+            x >= shipData.position.x &&
+            x <= shipData.position.x + shipData.length - 1
+          ) {
+            const slotIdx = x - shipData.position.x;
+            res = this.shoot(shipData, slotIdx, defender);
+            if (res === 'shot' || res === 'killed') break;
+          }
+        }
+      }
+      if (defender.shipsState.totalAlive <= 0) {
         return {
           finished: true,
           data: {
@@ -167,6 +129,9 @@ class Game {
         };
       }
     }
+
+    console.log('defender total ships', defender?.shipsState.totalAlive);
+
     return {
       finished: false,
       data: {
@@ -180,20 +145,14 @@ class Game {
     };
   }
 
-  calculateShot(coord: ICoord, length: number, defender: IGamePlayers, shipData: IShipData) {
-    if (
-      coord.attPoint1 === coord.defPoint1 &&
-      coord.attPoint2 >= coord.defPoint2 &&
-      coord.attPoint2 <= coord.defPoint2 + length - 1
-    ) {
-      const slotIdx = coord.attPoint2 - coord.defPoint2;
-      if (!shipData.slots[slotIdx]) {
-        shipData.slots[slotIdx] = 'x';
-        if (shipData.slots.find((i) => i === '')) return 'shot';
-        else {
-          defender.shipsState.totalAlive--;
-          return 'killed';
-        }
+  shoot(shipData: IShipData, slotIdx: number, defender: IGamePlayers) {
+    if (!shipData.slots[slotIdx]) {
+      shipData.slots[slotIdx] = 'x';
+
+      if (shipData.slots.find((i) => i === '') !== undefined) return 'shot';
+      else {
+        defender.shipsState.totalAlive--;
+        return 'killed';
       }
     }
     return 'miss';
@@ -226,85 +185,166 @@ class Game {
   }
 
   createRandomShips(bot: IGamePlayers) {
-    const genShips = [];
-    for (let i = 0; i < 5; i++) {
-      for (let j = 4; j > 0; j--) {
-        genShips.push(this.generateShip(bot, i));
+    const types: ['small', 'medium', 'large', 'huge'] = ['small', 'medium', 'large', 'huge'];
+    // const genShips: WSCommand.IGenShipData[] = [];
+    const board = Array(10)
+      .fill(0)
+      .map(() => Array(10).fill(0));
+    const coords: WSCommand.IGenShipData[] = [];
+    const shipLengths = [4, 3, 2, 1];
+    for (const shipLength of shipLengths) {
+      for (let i = 0; i < shipLengths[shipLength - 1]; i++) {
+        let shipPlaced = false;
+        while (!shipPlaced) {
+          const head = {
+            x: Math.floor(Math.random() * 10),
+            y: Math.floor(Math.random() * 10),
+          };
+          const direction = Math.random() < 0.5;
+          let tail;
+          if (direction) {
+            tail = {
+              x: head.x,
+              y: head.y + shipLength - 1,
+            };
+          } else {
+            tail = {
+              x: head.x + shipLength - 1,
+              y: head.y,
+            };
+          }
+
+          if (tail.x >= 0 && tail.x <= 9 && tail.y >= 0 && tail.y <= 9) {
+            const NSmin = Math.min(head.x, tail.x);
+            // const NSmax = Math.max(head.x, tail.x);
+            const EWmin = Math.min(head.y, tail.y);
+            // const EWmax = Math.max(head.y, tail.y);
+            // console.log(head.y, tail.y);
+            // console.log('EW', EWmin, EWmax);
+
+            let sum = 0;
+            if (direction) {
+              let EWminT = EWmin;
+              for (let i = 0; i < shipLength; i++) {
+                // console.log(board[EWmin++][NSmin]);
+
+                sum = sum + board[EWminT++][NSmin];
+                // console.log(EWminT, NSmin);
+              }
+            } else {
+              let NSminT = NSmin;
+
+              for (let i = 0; i < shipLength; i++) {
+                sum = sum + board[EWmin][NSminT++];
+              }
+            }
+            if (sum === 0) {
+              if (direction) {
+                let EWminT = EWmin;
+                coords.push({
+                  position: {
+                    y: EWminT,
+                    x: NSmin,
+                  },
+                  direction,
+                  length: shipLength,
+                  type: types[shipLength - 1],
+                  slots: [],
+                });
+
+                for (let i = 0; i < shipLength; i++) {
+                  // console.log(board[EWmin++][NSmin]);
+                  board[EWminT++][NSmin] = 1;
+                }
+              } else {
+                let NSminT = NSmin;
+                coords.push({
+                  position: {
+                    y: EWmin,
+                    x: NSminT,
+                  },
+                  direction,
+                  length: shipLength,
+                  type: types[shipLength - 1],
+                  slots: [],
+                });
+
+                for (let i = 0; i < shipLength; i++) {
+                  board[EWmin][NSminT++] = 1;
+                }
+              }
+              shipPlaced = true;
+            }
+          }
+        }
       }
     }
-    this.initShipsData(bot.index, genShips);
+
+    this.initShipsData(bot.index, coords);
   }
 
-  generateShip(bot: IGamePlayers, shipLength: number): WSCommand.IGenShipData {
-    const types: ['small', 'medium', 'large', 'huge'] = ['small', 'medium', 'large', 'huge'];
-    const tail = {
-      x: Math.floor(Math.random() * 10),
-      y: Math.floor(Math.random() * 10),
-    };
-    const direction = Math.random() < 0.5;
-    const head = direction
-      ? { ...tail, y: tail.y + shipLength }
-      : { ...tail, x: tail.x + shipLength };
-    if (this.checkIfOutOfBounds(head)) this.generateShip(bot, shipLength);
-    for (let i = 0; i < bot.shipsState.ships.length; i++) {
-      const currLine = {
-        tail,
-        head,
-      };
-      const checkLine = {
-        tail: {
-          x: bot.shipsState.ships[i].position.x,
-          y: bot.shipsState.ships[i].position.y,
-        },
-        head: bot.shipsState.ships[i].direction
-          ? {
-              x: bot.shipsState.ships[i].position.x,
-              y: bot.shipsState.ships[i].position.y + bot.shipsState.ships[i].length - 1,
-            }
-          : {
-              x: bot.shipsState.ships[i].position.x + bot.shipsState.ships[i].length,
-              y: bot.shipsState.ships[i].position.y,
-            },
-      };
-      if (this.checkIntercept(currLine, checkLine)) this.generateShip(bot, shipLength);
-    }
-    return {
-      position: {
-        x: tail.x,
-        y: tail.y,
-      },
-      direction: direction,
-      slots: [],
-      length: shipLength,
-      type: types[shipLength],
-    };
-  }
+  // generateShip(
+  //   bot: IGamePlayers,
+  //   shipLength: number,
+  //   ships: WSCommand.IGenShipData[]
+  // ): WSCommand.IGenShipData {
+  //   const types: ['small', 'medium', 'large', 'huge'] = ['small', 'medium', 'large', 'huge'];
 
-  checkIfOutOfBounds(head: IPoint) {
-    if (head.x > 9 || head.y > 9) return true;
-    return false;
-  }
+  //   // const tail = {
+  //   //   x: Math.floor(Math.random() * 10),
+  //   //   y: Math.floor(Math.random() * 10),
+  //   // };
+  //   // const direction = Math.random() < 0.5;
+  //   // const head = direction
+  //   //   ? { ...tail, y: tail.y + shipLength }
+  //   //   : { ...tail, x: tail.x + shipLength };
+  //   // if (this.checkIfOutOfBounds(head)) {
+  //   //   console.log('out of bounds');
+  //   //   this.generateShip(bot, shipLength, ships);
+  //   // }
 
-  checkIntercept(
-    currLine: { tail: IPoint; head: IPoint },
-    checkLine: { tail: IPoint; head: IPoint }
-  ) {
-    return (
-      this.ccw(currLine.tail, checkLine.tail, checkLine.head) !==
-        this.ccw(currLine.head, checkLine.tail, checkLine.head) &&
-      this.ccw(currLine.tail, currLine.head, checkLine.tail) !==
-        this.ccw(currLine.tail, currLine.head, checkLine.head)
-    );
-  }
-
-  ccw(A: IPoint, B: IPoint, C: IPoint) {
-    return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
-  }
+  //   // for (let i = 0; i < ships.length; i++) {
+  //   //   const currLine = {
+  //   //     tail,
+  //   //     head,
+  //   //   };
+  //   //   const checkLine = {
+  //   //     tail: {
+  //   //       x: ships[i].position.x,
+  //   //       y: ships[i].position.y,
+  //   //     },
+  //   //     head: ships[i].direction
+  //   //       ? {
+  //   //           x: ships[i].position.x,
+  //   //           y: ships[i].position.y + ships[i].length - 1,
+  //   //         }
+  //   //       : {
+  //   //           x: ships[i].position.x + ships[i].length - 1,
+  //   //           y: ships[i].position.y,
+  //   //         },
+  //   //   };
+  //   //   if (this.checkIntercept(currLine, checkLine)) {
+  //   //     console.log('intercept, generating new ship');
+  //   //     this.generateShip(bot, shipLength, ships);
+  //   //   }
+  //   //   if (this.checkSuperImpose(currLine, checkLine)) this.generateShip(bot, shipLength, ships);
+  //   // }
+  //   return {
+  //     position: {
+  //       x: tail.x,
+  //       y: tail.y,
+  //     },
+  //     direction: direction,
+  //     slots: [],
+  //     length: shipLength + 1,
+  //     type: types[shipLength],
+  //   };
+  // }
 }
 
-interface IPoint {
-  x: number;
-  y: number;
-}
+// interface IPoint {
+//   x: number;
+//   y: number;
+// }
 
 export default Game;

@@ -60,7 +60,6 @@ async function handleCLientsUpdate(data: IUpdateData, wsClient: ws, player: Play
       data.all.data.forEach((item) => socketDB.reckords[i].socket.send(item));
     }
   }
-  console.log(data.botPlay.isPlay);
 
   if (data.botPlay.isPlay) {
     const message = await handler.handleMessage(data.botPlay.data, player);

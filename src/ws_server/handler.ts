@@ -27,8 +27,6 @@ class Handler {
   }
 
   async handleMessage(data: string | Buffer[] | Buffer | ArrayBuffer, player: Player) {
-    console.log('message', data);
-
     if (typeof data !== 'string') return ErrorMgmt.createGenErrResp();
     const parsedData = parseRawData(data);
     if (parsedData) {
@@ -246,6 +244,7 @@ class Handler {
       const attackerIdx = valData.indexPlayer;
       const defenderIdx = attackerIdx === 0 ? 1 : 0;
       let attackResult: ICalcAttackRet;
+
       if (game) {
         if (attackerIdx === game.playerTurnIdx) {
           if ('x' in parsedData && 'y' in parsedData) {
