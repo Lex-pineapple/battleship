@@ -12,6 +12,7 @@ function createWebsocketServer(PORT: number) {
   const wsServer = new ws.Server({ port: PORT });
   console.log(`WebSocket server started on the ${PORT} port!`);
   wsServer.on('connection', onConnect);
+  return wsServer;
 }
 
 function onConnect(wsClient: ws) {

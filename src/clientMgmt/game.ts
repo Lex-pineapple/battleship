@@ -83,12 +83,15 @@ class Game {
 
   calculateAttack(attackerIdx: number, defenderIdx: number, x: number, y: number) {
     const defender = this.getPlayerByIdx(defenderIdx);
+    let killedShip = null;
+    let killData: WSCommand.IAttackReqData[] = [];
 
     let res: TAttackStatus = 'miss';
     if (defender) {
       if (this.ckeckIfMoveValid(x, y, attackerIdx)) {
         res = 'shot';
         return {
+          finStatus: res,
           finished: false,
           data: {
             position: {
@@ -105,6 +108,10 @@ class Game {
         if (x === shipData.position.x && y === shipData.position.y) {
           const slotIdx = 0;
           res = this.shoot(shipData, slotIdx, defender);
+          if (res === 'killed') {
+            killedShip = shipData;
+            break;
+          }
           break;
         }
         if (shipData.direction) {
@@ -115,7 +122,11 @@ class Game {
           ) {
             const slotIdx = y - shipData.position.y;
             res = this.shoot(shipData, slotIdx, defender);
-            if (res === 'shot' || res === 'killed') break;
+            if (res === 'shot') break;
+            if (res === 'killed') {
+              killedShip = shipData;
+              break;
+            }
           }
         } else {
           if (
@@ -125,21 +136,32 @@ class Game {
           ) {
             const slotIdx = x - shipData.position.x;
             res = this.shoot(shipData, slotIdx, defender);
-            if (res === 'shot' || res === 'killed') break;
+            if (res === 'shot') break;
+            if (res === 'killed') {
+              killedShip = shipData;
+              break;
+            }
           }
         }
       }
+      if (res === 'killed' && killedShip) {
+        killData = this.triangulateShipPosition(killedShip, attackerIdx);
+      }
       if (defender.shipsState.totalAlive <= 0) {
         return {
+          finStatus: res,
           finished: true,
-          data: {
-            position: {
-              x,
-              y,
-            },
-            currentPlayer: attackerIdx,
-            status: res,
-          },
+          data:
+            killData.length > 0
+              ? killData
+              : {
+                  position: {
+                    x,
+                    y,
+                  },
+                  currentPlayer: attackerIdx,
+                  status: res,
+                },
         };
       }
     }
@@ -147,16 +169,79 @@ class Game {
     // console.log('defender total ships', defender?.shipsState.totalAlive);
 
     return {
+      finStatus: res,
       finished: false,
-      data: {
-        position: {
-          x,
-          y,
-        },
-        currentPlayer: attackerIdx,
-        status: res,
-      },
+      data:
+        killData.length > 0
+          ? killData
+          : {
+              position: {
+                x,
+                y,
+              },
+              currentPlayer: attackerIdx,
+              status: res,
+            },
     };
+  }
+
+  triangulateShipPosition(ship: IShipData, attackerIdx: number) {
+    console.log('triangulating');
+
+    const coordsArr = [];
+    const resp: WSCommand.IAttackReqData = {
+      position: {
+        x: 0,
+        y: 0,
+      },
+      currentPlayer: attackerIdx,
+      status: 'miss',
+    };
+
+    if (ship.direction) {
+      const startX = ship.position.x - 1;
+      const startY = ship.position.y - 1;
+      for (let i = startX; i < startX + 3; i++) {
+        for (let j = startY; j < startY + ship.length + 2; j++) {
+          if (!(i < 0 || i > 9 || j < 0 || j > 9)) {
+            const status =
+              i === ship.position.x && j >= ship.position.y && j < ship.position.y + ship.length
+                ? 'killed'
+                : 'miss';
+            coordsArr.push({
+              ...resp,
+              position: {
+                x: i,
+                y: j,
+              },
+              status: status as TAttackStatus,
+            });
+          }
+        }
+      }
+    } else {
+      const startX = ship.position.x - 1;
+      const startY = ship.position.y - 1;
+      for (let i = startY; i < startY + 3; i++) {
+        for (let j = startX; j < startX + ship.length + 2; j++) {
+          if (!(i < 0 || i > 9 || j < 0 || j > 9)) {
+            const status =
+              i === ship.position.y && j >= ship.position.x && j < ship.position.x + ship.length
+                ? 'killed'
+                : 'miss';
+            coordsArr.push({
+              ...resp,
+              position: {
+                x: j,
+                y: i,
+              },
+              status: status as TAttackStatus,
+            });
+          }
+        }
+      }
+    }
+    return coordsArr;
   }
 
   shoot(shipData: IShipData, slotIdx: number, defender: IGamePlayers) {

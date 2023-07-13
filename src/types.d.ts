@@ -286,7 +286,8 @@ interface IMove {
 
 export interface ICalcAttackRet {
   finished: boolean;
-  data: WSCommand.IAttackReqData;
+  finStatus: TAttackStatus;
+  data: WSCommand.IAttackReqData | WSCommand.IAttackReqData[];
 }
 
 export type TAttackStatus = 'miss' | 'killed' | 'shot';

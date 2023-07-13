@@ -342,16 +342,11 @@ class Handler {
 
           const updData = innerUpdTemplate;
           const res = this.attackResponse(game, attackResult, updData);
+
           if (attackResult.finished) {
             return this.handleFinishGame(attackerIdx, res, game);
           } else
-            return this.handleNextMove(
-              res,
-              attackResult.data.status,
-              defenderIdx,
-              attackerIdx,
-              game
-            );
+            return this.handleNextMove(res, attackResult.finStatus, defenderIdx, attackerIdx, game);
         }
       }
     }
@@ -403,13 +398,29 @@ class Handler {
     const resAttack = resTemplates.attack;
     console.log(resAttack.type);
 
-    resAttack.data = JSON.stringify(attackResult.data);
+    const dataToReturn: string[] = [];
+    if (attackResult.data instanceof Array) {
+      attackResult.data.forEach((item) => {
+        dataToReturn.push(
+          JSON.stringify({
+            ...resAttack,
+            data: JSON.stringify(item),
+          })
+        );
+      });
+    } else
+      dataToReturn.push(
+        JSON.stringify({
+          ...resAttack,
+          data: JSON.stringify(attackResult.data),
+        })
+      );
     const gameReturnDataArray: ICreateGameRet[] = [];
     game.players.forEach((player) => {
       if (player.type !== 'bot' && player.id !== undefined && player.id !== null)
         gameReturnDataArray.push({
           id: player.id,
-          data: [JSON.stringify(resAttack)],
+          data: dataToReturn,
         });
     });
 
