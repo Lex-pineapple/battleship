@@ -186,8 +186,6 @@ class Game {
   }
 
   triangulateShipPosition(ship: IShipData, attackerIdx: number) {
-    console.log('triangulating');
-
     const coordsArr = [];
     const resp: WSCommand.IAttackReqData = {
       position: {

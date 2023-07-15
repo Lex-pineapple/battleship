@@ -8,20 +8,10 @@ console.log(`Start static http server on the ${HTTP_PORT} port!`);
 const wsServer = createWebsocketServer(WS_PORT);
 httpServer.listen(HTTP_PORT);
 
-function handleClose() {
+async function handleClose() {
   console.log('Stopping servers');
-  httpServer.close(() => {
-    console.log('Closed HTTP server');
-  });
-
-  wsServer.close(() => {
-    console.log('Closed Websocket server');
-  });
-
-  wsServer.clients.forEach((client) => {
-    client.close();
-    console.log('Closed websocket client');
-  });
+  httpServer.close();
+  wsServer.close();
 }
 
 process.on('SIGHUP', handleClose);
