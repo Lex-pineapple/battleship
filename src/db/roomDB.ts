@@ -7,11 +7,13 @@ class RoomDB {
   }
 
   createEmptyReckord() {
+    const roomId = this.reckords.length;
     this.reckords.push({
-      roomId: this.reckords.length,
+      roomId: roomId,
       roomUsers: [],
       inGame: false,
     });
+    return roomId;
   }
 
   addReckord(data: IRoomDBReckord) {

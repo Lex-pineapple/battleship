@@ -90,11 +90,11 @@ class Handler {
         };
       }
       case 'create_room': {
-        this.handleCreateRoom();
+        this.handleCreateRoom(player);
         return {
           ...updData,
           all: {
-            data: [this.handleUpdateRoom(), this.handleUpdateWinners()],
+            data: [this.handleUpdateRoom()],
           },
         };
       }
@@ -162,8 +162,9 @@ class Handler {
     return [JSON.stringify(regRes), this.handleUpdateRoom(), this.handleUpdateWinners()];
   }
 
-  handleCreateRoom(): void {
-    this.roomDB.createEmptyReckord();
+  handleCreateRoom(player: Player): void {
+    const roomId = this.roomDB.createEmptyReckord();
+    this.roomDB.addUserToRoom(roomId, player.name, player.id);
   }
 
   handleAddUserToRoom(data: string, player: Player) {
@@ -310,6 +311,7 @@ class Handler {
               });
             }
           });
+          console.log('turn');
 
           return startGameData;
         }
@@ -446,6 +448,7 @@ class Handler {
       finishGameResData.data.forEach((item) =>
         item.data.push(this.handleTurn(currentPlayer, game))
       );
+      console.log('turn');
 
       return {
         ...updData,
@@ -494,8 +497,6 @@ class Handler {
 
   handleTurn(currentPlayer: number, game: Game) {
     const turnRes = resTemplates.turn;
-    console.log(turnRes.type);
-
     game.playerTurnIdx = currentPlayer;
     return JSON.stringify({
       ...turnRes,
