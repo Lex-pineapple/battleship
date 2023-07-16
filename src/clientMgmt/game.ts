@@ -1,4 +1,11 @@
-import { IGamePlayers, IRoomDBReckordUser, IShipData, TAttackStatus, WSCommand } from '../types';
+import {
+  ICalcAttackRet,
+  IGamePlayers,
+  IRoomDBReckordUser,
+  IShipData,
+  TAttackStatus,
+  WSCommand,
+} from '../types';
 
 class Game {
   gameId: number;
@@ -81,28 +88,13 @@ class Game {
     return true;
   }
 
-  calculateAttack(attackerIdx: number, defenderIdx: number, x: number, y: number) {
+  calculateAttack(attackerIdx: number, defenderIdx: number, x: number, y: number): ICalcAttackRet {
     const defender = this.getPlayerByIdx(defenderIdx);
     let killedShip = null;
     let killData: WSCommand.IAttackReqData[] = [];
-
+    this.rememberMove(x, y, attackerIdx);
     let res: TAttackStatus = 'miss';
     if (defender) {
-      if (this.ckeckIfMoveValid(x, y, attackerIdx)) {
-        res = 'shot';
-        return {
-          finStatus: res,
-          finished: false,
-          data: {
-            position: {
-              x,
-              y,
-            },
-            currentPlayer: attackerIdx,
-            status: res,
-          },
-        };
-      }
       for (let i = 0; i < defender.shipsState.ships.length; i++) {
         const shipData = defender.shipsState.ships[i];
         if (x === shipData.position.x && y === shipData.position.y) {
@@ -239,10 +231,18 @@ class Game {
         }
       }
     }
+    coordsArr.forEach((coord) =>
+      this.rememberMove(coord.position.x, coord.position.y, attackerIdx)
+    );
     return coordsArr;
   }
 
   shoot(shipData: IShipData, slotIdx: number, defender: IGamePlayers) {
+    const totalShips = shipData.slots.reduce((acc, curr) => {
+      if (curr === 'x') return acc + 1;
+      return acc;
+    }, 0);
+    if (totalShips >= shipData.length) return 'killed';
     if (!shipData.slots[slotIdx]) {
       shipData.slots[slotIdx] = 'x';
 
@@ -252,18 +252,19 @@ class Game {
         return 'killed';
       }
     }
-    return 'miss';
+    return 'shot';
   }
 
-  generateRandomMove(attackerIdx: number) {
+  generateRandomMove(attackerIdx: number): { x: number; y: number } {
     const attacker = this.getPlayerByIdx(attackerIdx);
 
     const move = {
       x: Math.floor(Math.random() * 10),
       y: Math.floor(Math.random() * 10),
     };
-    if (attacker && attacker.moves.some((e) => e.x === move.x && e.y === move.y))
-      this.generateRandomMove(attackerIdx);
+    if (attacker && attacker.moves.some((e) => e.x === move.x && e.y === move.y)) {
+      return this.generateRandomMove(attackerIdx);
+    }
     return move;
   }
 
@@ -274,11 +275,12 @@ class Game {
 
   rememberMove(x: number, y: number, attackerIdx: number) {
     const attacker = this.getPlayerByIdx(attackerIdx);
-    if (attacker)
-      attacker.moves.push({
-        x,
-        y,
-      });
+    if (attacker && attacker.type === 'bot')
+      if (!attacker.moves.find((item) => item.x === x && item.y === y))
+        attacker.moves.push({
+          x,
+          y,
+        });
   }
 
   createRandomShips(bot: IGamePlayers) {

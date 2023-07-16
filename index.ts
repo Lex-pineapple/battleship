@@ -12,9 +12,12 @@ async function handleClose() {
   console.log('Stopping servers');
   httpServer.close();
   wsServer.close();
+  process.exit(0);
 }
 
-process.on('SIGHUP', handleClose);
-process.on('SIGINT', handleClose);
-process.on('SIGQUIT', handleClose);
-process.on('SIGTERM', handleClose);
+// process.on('SIGHUP', handleClose);
+process.on('SIGINT', async () => {
+  await handleClose();
+});
+// process.on('SIGQUIT', handleClose);
+// process.on('SIGTERM', handleClose);
