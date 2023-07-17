@@ -2,12 +2,15 @@ import { IRoomDBReckord } from 'src/types';
 
 class RoomDB {
   reckords: IRoomDBReckord[];
+  idCounter: number;
   constructor() {
     this.reckords = [];
+    this.idCounter = 0;
   }
 
   createEmptyReckord() {
-    const roomId = this.reckords.length;
+    const roomId = this.idCounter++;
+
     this.reckords.push({
       roomId: roomId,
       roomUsers: [],

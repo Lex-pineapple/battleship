@@ -56,9 +56,9 @@ class Handler {
             });
         }
       });
-      this.playerDB.deleteReckordById(player.id);
-      this.roomDB.deleteReckordById(player.roomStat.roomId);
-      this.gameDB.deleteReckordById(player.roomStat.roomId);
+      // this.playerDB.deleteReckordById(player.id);
+      // this.roomDB.deleteReckordById(player.roomStat.roomId);
+      // this.gameDB.deleteReckordById(player.roomStat.roomId);
 
       return this.handleFinishGame(winnerIdx, finishData, game);
     }
@@ -211,6 +211,7 @@ class Handler {
 
     for (let i = 0; i < newGame.players.length; i++) {
       const playerId = newGame.players[i].id;
+
       if (playerId !== null && playerId !== undefined) {
         resCreateArray.push({
           id: playerId,
@@ -284,19 +285,21 @@ class Handler {
           const startGameRes = resTemplates.start_game;
           console.log(startGameRes.type);
 
-          const startGameData: {
-            game: {
-              data: ICreateGameRet[];
-            };
-          } = {
-            game: {
-              data: [],
-            },
-          };
+          // const startGameData: {
+          //   game: {
+          //     data: ICreateGameRet[];
+          //   };
+          // } = {
+          //   game: {
+          //     data: [],
+          //   },
+          // };
+
+          const resData: ICreateGameRet[] = [];
 
           game.players.forEach((player) => {
             if (player.type !== 'bot' && player.id !== undefined && player.id !== null) {
-              startGameData.game.data.push({
+              resData.push({
                 id: player.id,
                 data: [
                   JSON.stringify({
@@ -313,7 +316,11 @@ class Handler {
           });
           console.log('turn');
 
-          return startGameData;
+          return {
+            game: {
+              data: resData,
+            },
+          };
         }
       }
     } else return ErrorMgmt.createGenErrResp();
@@ -444,10 +451,12 @@ class Handler {
     if (updData.game instanceof Object) {
       const currentPlayer = status === 'miss' ? defenderIdx : attackerIdx;
       game.playerTurnIdx = currentPlayer;
-      const finishGameResData = updData.game;
-      finishGameResData.data.forEach((item) =>
-        item.data.push(this.handleTurn(currentPlayer, game))
-      );
+      const finishGameResData = { ...updData.game };
+      const handleturndata = this.handleTurn(currentPlayer, game);
+      finishGameResData.data[0].data.push(handleturndata);
+      // finishGameResData.data.forEach((item) => {
+      //   // item.data.push(handleturndata);
+      // });
       console.log('turn');
 
       return {
@@ -507,21 +516,20 @@ class Handler {
   }
 
   handleSinglePlayer(player: Player) {
-    const virtRoomData = {
-      roomId: this.roomDB.reckords.length,
-      inGame: true,
-      roomUsers: [
-        {
-          name: player.name,
-          index: 0,
-          id: player.id,
-        },
-        false,
-      ],
-    };
     return {
       game: {
-        data: this.handleCreateGame(virtRoomData),
+        data: this.handleCreateGame({
+          roomId: this.roomDB.idCounter++,
+          inGame: true,
+          roomUsers: [
+            {
+              name: player.name,
+              index: 0,
+              id: player.id,
+            },
+            false,
+          ],
+        }),
       },
     };
   }

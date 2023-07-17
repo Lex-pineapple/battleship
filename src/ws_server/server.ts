@@ -69,6 +69,7 @@ async function handleCLientsUpdate(data: IUpdateData, wsClient: ws, player: Play
   if (data.game && data.game instanceof Object) {
     data.game.data.forEach((item) => {
       const socket = socketDB.getReckordByID(item.id);
+
       item.data.forEach((rec) => {
         socket?.socket.send(rec);
       });
